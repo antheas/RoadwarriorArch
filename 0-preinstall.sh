@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #-------------------------------------------------------------------------
-#   █████╗ ██████╗  ██████╗██╗  ██╗████████╗██╗████████╗██╗   ██╗███████╗
-#  ██╔══██╗██╔══██╗██╔════╝██║  ██║╚══██╔══╝██║╚══██╔══╝██║   ██║██╔════╝
-#  ███████║██████╔╝██║     ███████║   ██║   ██║   ██║   ██║   ██║███████╗
-#  ██╔══██║██╔══██╗██║     ██╔══██║   ██║   ██║   ██║   ██║   ██║╚════██║
-#  ██║  ██║██║  ██║╚██████╗██║  ██║   ██║   ██║   ██║   ╚██████╔╝███████║
-#  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝   ╚═╝    ╚═════╝ ╚══════╝
+#      ___         ___              __  
+#     /   |       /   |  __________/ /_ 
+#    / /| |______/ /| | / ___/ ___/ __ \
+#   / ___ /_____/ ___ |/ /  / /__/ / / /
+#  /_/  |_|    /_/  |_/_/   \___/_/ /_/                                   
 #-------------------------------------------------------------------------
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 echo "-------------------------------------------------"
 echo "Setting up mirrors for optimal download          "
 echo "-------------------------------------------------"
@@ -18,13 +18,13 @@ setfont ter-v22b
 sed -i 's/^#Para/Para/' /etc/pacman.conf
 pacman -S --noconfirm reflector rsync grub
 cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
+
 echo -e "-------------------------------------------------------------------------"
-echo -e "   █████╗ ██████╗  ██████╗██╗  ██╗████████╗██╗████████╗██╗   ██╗███████╗"
-echo -e "  ██╔══██╗██╔══██╗██╔════╝██║  ██║╚══██╔══╝██║╚══██╔══╝██║   ██║██╔════╝"
-echo -e "  ███████║██████╔╝██║     ███████║   ██║   ██║   ██║   ██║   ██║███████╗"
-echo -e "  ██╔══██║██╔══██╗██║     ██╔══██║   ██║   ██║   ██║   ██║   ██║╚════██║"
-echo -e "  ██║  ██║██║  ██║╚██████╗██║  ██║   ██║   ██║   ██║   ╚██████╔╝███████║"
-echo -e "  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝   ╚═╝    ╚═════╝ ╚══════╝"
+echo -e "      ___         ___              __                                    "
+echo -e "     /   |       /   |  __________/ /_                                   "
+echo -e "    / /| |______/ /| | / ___/ ___/ __ \                                  "
+echo -e "   / ___ /_____/ ___ |/ /  / /__/ / / /                                  "
+echo -e "  /_/  |_|    /_/  |_/_/   \___/_/ /_/                                   "
 echo -e "-------------------------------------------------------------------------"
 echo -e "-Setting up $iso mirrors for faster downloads"
 echo -e "-------------------------------------------------------------------------"
@@ -56,9 +56,9 @@ sgdisk -Z ${DISK} # zap all on disk
 sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
 
 # create partitions
-sgdisk -n 1::+1M --typecode=1:ef02 --change-name=1:'BIOSBOOT' ${DISK} # partition 1 (BIOS Boot Partition)
-sgdisk -n 2::+100M --typecode=2:ef00 --change-name=2:'EFIBOOT' ${DISK} # partition 2 (UEFI Boot Partition)
-sgdisk -n 3::-0 --typecode=3:8300 --change-name=3:'ROOT' ${DISK} # partition 3 (Root), default start, remaining
+sgdisk -n 1::+1M   --typecode=1:ef02 --change-name=1:'bios' ${DISK} # partition 1 (BIOS Boot Partition)
+sgdisk -n 2::+512M --typecode=2:ef00 --change-name=2:'efi'  ${DISK} # partition 2 (UEFI Boot Partition)
+sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'root' ${DISK} # partition 3 (Root), default start, remaining
 if [[ ! -d "/sys/firmware/efi" ]]; then
     sgdisk -A 1:set:2 ${DISK}
 fi
@@ -66,13 +66,13 @@ fi
 # make filesystems
 echo -e "\nCreating Filesystems...\n$HR"
 if [[ ${DISK} =~ "nvme" ]]; then
-mkfs.vfat -F32 -n "EFIBOOT" "${DISK}p2"
-mkfs.btrfs -L "ROOT" "${DISK}p3" -f
-mount -t btrfs "${DISK}p3" /mnt
+    mkfs.vfat -F32 -n "EFIBOOT" "${DISK}p2"
+    mkfs.btrfs -L "ROOT" "${DISK}p3" -f
+    mount -t btrfs "${DISK}p3" /mnt
 else
-mkfs.vfat -F32 -n "EFIBOOT" "${DISK}2"
-mkfs.btrfs -L "ROOT" "${DISK}3" -f
-mount -t btrfs "${DISK}3" /mnt
+    mkfs.vfat -F32 -n "EFIBOOT" "${DISK}2"
+    mkfs.btrfs -L "ROOT" "${DISK}3" -f
+    mount -t btrfs "${DISK}3" /mnt
 fi
 ls /mnt | xargs btrfs subvolume delete
 btrfs subvolume create /mnt/@
