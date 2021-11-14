@@ -9,9 +9,9 @@
 #----------------------------------------------------------------------------------
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-echo "-------------------------------------------------"
-echo "Setting up mirrors for optimal download          "
-echo "-------------------------------------------------"
+echo "--------------------------------------------------------------------------"
+echo "- Setting up mirrors for optimal download  "
+echo "--------------------------------------------------------------------------"
 iso=$(curl -4 ifconfig.co/country-iso)
 timedatectl set-ntp true
 pacman -S --noconfirm pacman-contrib terminus-font
@@ -28,116 +28,122 @@ echo -e "   |    |   (  <_> ) __ \\/ /_/ | \\        / / __ \\|  | \\/|  | \\/  
 echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\\____/|__|     "
 echo -e "          \\/           \\/     \\/       \\/       \\/                                "
 echo -e "----------------------------------------------------------------------------------"
-echo -e "-Setting up $iso mirrors for faster downloads"
+echo -e "- Setting up $iso mirrors for faster downloads"
 echo -e "----------------------------------------------------------------------------------"
 
 reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
 mkdir /mnt
 
-
 echo -e "\nInstalling prereqs...\n$HR"
 pacman -S --noconfirm gptfdisk btrfs-progs
 
-echo "-------------------------------------------------"
-echo "-------select your disk to format----------------"
-echo "-------------------------------------------------"
-disks=$(lsblk)
-echo $disks
-echo "Please enter disk to work on: (example /dev/sda)"
-while :; do
-    read -p "Disk: " disk
-    [[ disks != *"$disk"* ]]
+echo "--------------------------------------------------------------------------"
+echo "- Disk Partitioning  "
+echo "--------------------------------------------------------------------------"
+echo "Please select the disk to work on:"
+select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
+do
+    disk=$ENTRY
+    print "Installing Arch Linux on $disk."
+    break
 done
+
+# Format warning
 echo "THIS WILL FORMAT AND DELETE ALL DATA ON THE DISK"
 read -p "Are you sure you want to continue (y/N):" formatdisk
-
 case $formatdisk in
     y|Y|yes|Yes|YES)
-        echo "--------------------------------------"
-        echo -e "\nFormatting disk...\n$HR"
-        echo "--------------------------------------"
-
-        # Disk Preparation, -a 2048 is a default parameter; nothing risky
-        read -p "Zap Disk? (y/N):" zapMe
-        case $zapMe in
-            y|Y|yes|Yes|YES)
-                echo "Zapping..."
-                sgdisk -Z ${DISK} # Zeroes the disk
-                ;;
-        esac
-        sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
-
-        # create partitions
-        sgdisk -n 1::+1M   --typecode=1:ef02 --change-name=1:'bios' ${DISK} # partition 1 (BIOS Boot Partition; handled by GRUB)
-        sgdisk -n 2::+512M --typecode=2:ef00 --change-name=2:'efi'  ${DISK} # partition 2 (UEFI Boot Partition)
-        sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'root' ${DISK} # partition 3 (Root), default start, remaining
-
-        # Enable BIOS boot bit iff UEFI is not detected
-        if [[ ! -d "/sys/firmware/efi" ]]; then
-            sgdisk -A 1:set:2 ${DISK}
-        fi
-
-        # NVMe partitions are in the style /dev/nvme0n1p2
-        # SATA partitions are in the style /dev/sda1
-        # Add p to disk name if nvme
-        if [[ ${DISK} =~ "nvme" ]]; then
-            DISKP=${DISK}p
-        else
-            DISKP=${DISK}
-        fi
-
-        echo -e "\nCreating Filesystems...\n$HR"
-        # Make Filesystems
-        # EFI: 512M vfat
-        mkfs.vfat -F32 -n "efi" "${DISKP}2"
-
-        # Boot partition: encapsulated luks btrfs
-        # You will be asked for a password twice now
-        echo "Launching Cryptsetup, you will be asked to enter your encryption password"
-        cryptsetup luksFormat "${DISKP}3"
-        
-        echo "\nDumping encrypted partition information..."
-        cryptsetup luksDump "${DISKP}3"
-        read -p "Verify the luks header is correct and any key to continue..."
-
-        # Formating internal partition to btrfs
-        echo "Opening encrypted partition, you will be asked for your password"
-        cryptsetup open "${DISKP}3" cryptroot
-
-        echo "Configuring BTRFS partition"
-        mkfs.btrfs -L root /dev/mapper/cryptroot
-        mount /dev/mapper/cryptroot /mnt
-        
-        # Del existing sub-volumes (?)
-        ls /mnt | xargs btrfs subvolume delete
-
-        # https://wiki.archlinux.org/title/Btrfs#Partitionless_Btrfs_disk
-        # @ /
-        # @home /home
-        # @cache /var/cache
-        # @log /var/log
-        # @swap /swap
-        # @snapshots /.snapshots
-        btrfs subvolume create /mnt/@
-        btrfs subvolume create /mnt/@home
-        btrfs subvolume create /mnt/@cache
-        btrfs subvolume create /mnt/@log
-        btrfs subvolume create /mnt/@swap
-        btrfs subvolume create /mnt/@snapshots
-        
-        umount /mnt
         ;;
     *)
-        echo "Rebooting in 3 Seconds ..." && sleep 1
-        echo "Rebooting in 2 Seconds ..." && sleep 1
-        echo "Rebooting in 1 Second ..." && sleep 1
-        reboot now
+        exit 1
         ;;
 esac
 
+echo "--------------------------------------"
+echo -e "\nFormatting disk...\n$HR"
+echo "--------------------------------------"
+
+# Disk Preparation, -a 2048 is a default parameter; nothing risky
+read -p "Zap Disk (zero it out)? (y/N):" zapMe
+case $zapMe in
+    y|Y|yes|Yes|YES)
+        echo "Zapping..."
+        sgdisk -Z ${DISK} # Zeroes the disk
+        ;;
+esac
+sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
+
+# create partitions
+sgdisk -n 1::+1M   --typecode=1:ef02 --change-name=1:'bios' ${DISK} # partition 1 (BIOS Boot Partition; handled by GRUB)
+sgdisk -n 2::+512M --typecode=2:ef00 --change-name=2:'efi'  ${DISK} # partition 2 (UEFI Boot Partition)
+sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'root' ${DISK} # partition 3 (Root), default start, remaining
+
+# Enable BIOS boot bit iff UEFI is not detected
+if [[ ! -d "/sys/firmware/efi" ]]; then
+    sgdisk -A 1:set:2 ${DISK}
+fi
+
+# NVMe partitions are in the style /dev/nvme0n1p2
+# SATA partitions are in the style /dev/sda1
+# Add p to disk name if nvme
+if [[ ${DISK} =~ "nvme" ]]; then
+    DISKP=${DISK}p
+else
+    DISKP=${DISK}
+fi
+
+echo -e "\nCreating Filesystems...\n$HR"
+# Make Filesystems
+# EFI: 512M vfat
+mkfs.vfat -F32 -n "efi" "${DISKP}2"
+
+# Boot partition: encapsulated luks btrfs
+# You will be asked for a password twice now
+echo "Launching Cryptsetup, you will be asked to enter your encryption password"
+read -r -s -p "Insert password for the LUKS container (you're not going to see the password): " password
+if [ -z "$password" ]; then
+    print "You need to enter a password for the LUKS Container in order to continue."
+    password_selector
+fi
+echo -n "$password" | cryptsetup luksFormat "$CRYPTROOT" -d -
+echo -n "$password" | cryptsetup open "$CRYPTROOT" cryptroot -d -
+BTRFS="/dev/mapper/cryptroot"
+cryptsetup luksFormat "${DISKP}3"
+
+echo "\nDumping encrypted partition information..."
+cryptsetup luksDump "${DISKP}3"
+read -p "Verify the luks header is correct and any key to continue..."
+
+# Formating internal partition to btrfs
+echo "Opening encrypted partition, you will be asked for your password"
+cryptsetup open "${DISKP}3" cryptroot
+
+echo "Configuring BTRFS partition"
+mkfs.btrfs -L root /dev/mapper/cryptroot
+mount /dev/mapper/cryptroot /mnt
+
+# Del existing sub-volumes (?)
+ls /mnt | xargs btrfs subvolume delete
+
+# https://wiki.archlinux.org/title/Btrfs#Partitionless_Btrfs_disk
+# @ /
+# @home /home
+# @cache /var/cache
+# @log /var/log
+# @swap /swap
+# @snapshots /.snapshots
+btrfs subvolume create /mnt/@
+btrfs subvolume create /mnt/@home
+btrfs subvolume create /mnt/@cache
+btrfs subvolume create /mnt/@log
+btrfs subvolume create /mnt/@swap
+btrfs subvolume create /mnt/@snapshots
+
+umount /mnt
+
 # Mount new filesystem
 # Compression should be beneficial according to the wiki
-mount -o compress=zstd,subvol=@ /dev/mapper/cryptroot /mnt
+mount -o defaults,compress=zstd,noatime,space_cache,subvol=@ /dev/mapper/cryptroot /mnt
 
 mkdir -p /mnt/home
 mkdir -p /mnt/var/cache
@@ -147,18 +153,15 @@ mkdir -p /mnt/.snapshots
 mkdir -p /mnt/boot
 
 mount -t vfat -L efi /mnt/boot
-mount -o compress=zstd,subvol=@home      /dev/mapper/cryptroot /mnt/home
-mount -o compress=zstd,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
-mount -o compress=zstd,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
-mount -o subvol=@swap                    /dev/mapper/cryptroot /mnt/swap
-mount -o compress=zstd,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+mount -o defaults,compress=zstd,noatime,space_cache,subvol=@home      /dev/mapper/cryptroot /mnt/home
+mount -o defaults,compress=zstd,noatime,space_cache,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
+mount -o defaults,compress=zstd,noatime,space_cache,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
+mount -o defaults,subvol=@swap                                           /dev/mapper/cryptroot /mnt/swap
+mount -o defaults,compress=zstd,noatime,space_cache,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
 
 if ! grep -qs '/mnt' /proc/mounts; then
     echo "Drive is not mounted, can not continue"
-    echo "Rebooting in 3 Seconds ..." && sleep 1
-    echo "Rebooting in 2 Seconds ..." && sleep 1
-    echo "Rebooting in 1 Second ..." && sleep 1
-    reboot now
+    exit 1
 fi
 
 # Create btrfs swap file, substitute count for GB of ram if you want hibernate
