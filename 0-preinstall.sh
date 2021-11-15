@@ -7,7 +7,23 @@
 #   |____|_  /\____(____  |____ |  \__/\  / (____  /__|   |__|  |__|\____/|__|   
 #          \/           \/     \/       \/       \/                              
 #----------------------------------------------------------------------------------
+# if running the script multiple times, cleanup...
+# Remove swap, then all the btrfs mountpoints with last being root and close crypt container
+[[ -n $(cat /proc/swaps | grep swap) ]] && swapoff /mnt/swap/swapfile
+for D in /boot /home /var/cache /var/log /swap /.snapshots /; do
+    mountpoint -q "/mnt$D" && umount "/mnt$D"
+done
+if [ -b /dev/mapper/cryptroot ]; then
+    cryptsetup close cryptroot
+fi
+partprobe 2>/dev/null
+rm -r /mnt
+
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# If your iso is old you may have issues with the install
+# Updating database without running an upgrade...
+pacman -Sy
 
 echo "--------------------------------------------------------------------------"
 echo "- Setting up mirrors for optimal download  "
@@ -16,9 +32,9 @@ iso=$(curl -4 ifconfig.co/country-iso)
 timedatectl set-ntp true
 pacman -S --noconfirm pacman-contrib terminus-font
 setfont ter-v22b
+# Enables Parallel downloads in pacman
 sed -i 's/^#Para/Para/' /etc/pacman.conf
 pacman -S --noconfirm reflector rsync grub
-cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup
 
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
@@ -32,7 +48,7 @@ echo -e "- Setting up $iso mirrors for faster downloads"
 echo -e "----------------------------------------------------------------------------------"
 
 reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
-mkdir /mnt
+mkdir -p /mnt
 
 echo -e "\nInstalling prereqs...\n$HR"
 pacman -S --noconfirm gptfdisk btrfs-progs
@@ -43,9 +59,11 @@ echo "--------------------------------------------------------------------------
 echo "Please select the disk to work on:"
 select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
 do
-    disk=$ENTRY
-    print "Installing Arch Linux on $disk."
-    break
+    DISK=$ENTRY
+    if [[ -n "$DISK" ]]; then
+        echo "Installing Arch Linux on $DISK."
+        break
+    fi
 done
 
 # Format warning
@@ -55,31 +73,28 @@ case $formatdisk in
     y|Y|yes|Yes|YES)
         ;;
     *)
+        echo "Exiting..."
         exit 1
         ;;
 esac
 
-echo "--------------------------------------"
-echo -e "\nFormatting disk...\n$HR"
-echo "--------------------------------------"
+echo "--------------------------------------------------------------------------"
+echo "- Formatting disk..."
+echo "--------------------------------------------------------------------------"
 
 # Disk Preparation, -a 2048 is a default parameter; nothing risky
-read -p "Zap Disk (zero it out)? (y/N):" zapMe
-case $zapMe in
-    y|Y|yes|Yes|YES)
-        echo "Zapping..."
-        sgdisk -Z ${DISK} # Zeroes the disk
-        ;;
-esac
+sgdisk -Z ${DISK} # Zeroes the disk
 sgdisk -a 2048 -o ${DISK} # new gpt disk 2048 alignment
 
 # create partitions
-sgdisk -n 1::+1M   --typecode=1:ef02 --change-name=1:'bios' ${DISK} # partition 1 (BIOS Boot Partition; handled by GRUB)
-sgdisk -n 2::+512M --typecode=2:ef00 --change-name=2:'efi'  ${DISK} # partition 2 (UEFI Boot Partition)
-sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'root' ${DISK} # partition 3 (Root), default start, remaining
+sgdisk -n 1::+1M   --typecode=1:ef02 --change-name=1:'BIOS' ${DISK} # partition 1 (BIOS Boot Partition; handled by GRUB)
+sgdisk -n 2::+512M --typecode=2:ef00 --change-name=2:'EFI'  ${DISK} # partition 2 (UEFI Boot Partition)
+sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'LUKS' ${DISK} # partition 3 (LUKS container), default start, remaining
 
 # Enable BIOS boot bit iff UEFI is not detected
 if [[ ! -d "/sys/firmware/efi" ]]; then
+    echo "UEFI mode not detected. BIOS support will be enabled. You should use UEFI."
+    read -p "ctrl-c to exit so you can check the BIOS, or press any key to continue..."
     sgdisk -A 1:set:2 ${DISK}
 fi
 
@@ -92,38 +107,44 @@ else
     DISKP=${DISK}
 fi
 
-echo -e "\nCreating Filesystems...\n$HR"
+echo "--------------------------------------------------------------------------"
+echo "- Creating File Systems"
+echo "--------------------------------------------------------------------------"
 # Make Filesystems
-# EFI: 512M vfat
-mkfs.vfat -F32 -n "efi" "${DISKP}2"
+echo "Creating a EFI 512M vfat partition"
+mkfs.vfat -F32 -n "EFI" "${DISKP}2"
 
 # Boot partition: encapsulated luks btrfs
 # You will be asked for a password twice now
 echo "Launching Cryptsetup, you will be asked to enter your encryption password"
-read -r -s -p "Insert password for the LUKS container (you're not going to see the password): " password
-if [ -z "$password" ]; then
-    print "You need to enter a password for the LUKS Container in order to continue."
-    password_selector
-fi
-echo -n "$password" | cryptsetup luksFormat "$CRYPTROOT" -d -
-echo -n "$password" | cryptsetup open "$CRYPTROOT" cryptroot -d -
-BTRFS="/dev/mapper/cryptroot"
-cryptsetup luksFormat "${DISKP}3"
+while
+    read -r -s -p "Password: " password
+    echo ""
+    read -r -s -p "  Verify: " verifyPassword
+    echo ""
+    [[ -z "$password" || "$password" != "$verifyPassword" ]]
+do true; done
+# cryptsetup has sane defaults
+# https://wiki.archlinux.org/title/dm-crypt/Device_encryption#Encryption_options_for_LUKS_mode
+echo -n "$password" | cryptsetup luksFormat "${DISKP}3" -d -
 
-echo "\nDumping encrypted partition information..."
+# We expect to see only the 0 key slot occupied by a key
+echo -e "\nDumping encrypted partition information..."
 cryptsetup luksDump "${DISKP}3"
 read -p "Verify the luks header is correct and any key to continue..."
 
 # Formating internal partition to btrfs
-echo "Opening encrypted partition, you will be asked for your password"
-cryptsetup open "${DISKP}3" cryptroot
+echo -e "\nOpening partition..."
+echo -n "$password" | cryptsetup open "${DISKP}3" cryptroot -d -
 
-echo "Configuring BTRFS partition"
-mkfs.btrfs -L root /dev/mapper/cryptroot
+echo "--------------------------------------------------------------------------"
+echo "- Configuring BTRFS partition"
+echo "--------------------------------------------------------------------------"
+mkfs.btrfs -L ROOT /dev/mapper/cryptroot
 mount /dev/mapper/cryptroot /mnt
 
-# Del existing sub-volumes (?)
-ls /mnt | xargs btrfs subvolume delete
+# Del existing sub-volumes
+[[ -n $(ls /mnt) ]] && ls /mnt | xargs btrfs subvolume delete
 
 # https://wiki.archlinux.org/title/Btrfs#Partitionless_Btrfs_disk
 # @ /
@@ -143,7 +164,10 @@ umount /mnt
 
 # Mount new filesystem
 # Compression should be beneficial according to the wiki
-mount -o defaults,compress=zstd,noatime,space_cache,subvol=@ /dev/mapper/cryptroot /mnt
+# noatime disables read timestamps
+# space_cache=v2 has recently become the default
+# https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@ /dev/mapper/cryptroot /mnt
 
 mkdir -p /mnt/home
 mkdir -p /mnt/var/cache
@@ -152,12 +176,12 @@ mkdir -p /mnt/swap
 mkdir -p /mnt/.snapshots
 mkdir -p /mnt/boot
 
-mount -t vfat -L efi /mnt/boot
-mount -o defaults,compress=zstd,noatime,space_cache,subvol=@home      /dev/mapper/cryptroot /mnt/home
-mount -o defaults,compress=zstd,noatime,space_cache,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
-mount -o defaults,compress=zstd,noatime,space_cache,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
-mount -o defaults,subvol=@swap                                           /dev/mapper/cryptroot /mnt/swap
-mount -o defaults,compress=zstd,noatime,space_cache,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+mount -t vfat -L "EFI" /mnt/boot
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/mapper/cryptroot /mnt/home
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
+mount -o defaults,noatime,subvol=@swap                                   /dev/mapper/cryptroot /mnt/swap
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
 
 if ! grep -qs '/mnt' /proc/mounts; then
     echo "Drive is not mounted, can not continue"
@@ -166,7 +190,8 @@ fi
 
 # Create btrfs swap file, substitute count for GB of ram if you want hibernate
 # Use dd for allocation, not fallocate (due to holes, needs to be continuous)
-read -p "Creating /swap/swapfile, enter size in GBs (RAM GBs + 1 for hibernate, ex: 17): " swapSize
+TOTALMEM=$(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*')
+swapSize=$(expr $TOTALMEM / 1000000 + 1) # N + 1 GB of memory, for hibernation
 cd /mnt/swap
 touch ./swapfile
 chmod 600 ./swapfile
@@ -176,18 +201,16 @@ dd if=/dev/zero of=./swapfile bs=1G count=${swapSize} status=progress
 mkswap ./swapfile
 swapon ./swapfile
 
-# Generate fstab
-genfstab -U /mnt > /mnt/etc/fstab
-echo "\nDumping fstab, verify it's correct..."
-cat /mnt/etc/fstab
-read -p "Press any key to continue..."
-
 echo "--------------------------------------"
 echo "-- Arch Install on Main Drive       --"
 echo "--------------------------------------"
-pacstrap --noconfirm --needed /mnt base base-devel linux linux-firmware btrfs-progs archlinux-keyring
-pacstrap --noconfirm --needed /mnt linux-tools linux-lts vim nano sudo wget linbnewt
+pacstrap /mnt --noconfirm --needed base base-devel linux linux-firmware btrfs-progs archlinux-keyring
+pacstrap /mnt --noconfirm --needed linux-tools linux-lts vim nano sudo wget linbnewt
+
 genfstab -U /mnt >> /mnt/etc/fstab
+echo -e "\nDumping fstab, verify it's correct..."
+cat /mnt/etc/fstab
+read -p "Press any key to continue..."
 
 # Add ubuntu keyserver, copy install script to new system, copy updated mirrorlist
 echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
