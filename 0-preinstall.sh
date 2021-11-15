@@ -201,11 +201,11 @@ dd if=/dev/zero of=./swapfile bs=1G count=${swapSize} status=progress
 mkswap ./swapfile
 swapon ./swapfile
 
-echo "--------------------------------------"
-echo "-- Arch Install on Main Drive       --"
-echo "--------------------------------------"
+echo "--------------------------------------------------------------------------"
+echo "-- Arch Install on Main Drive"
+echo "--------------------------------------------------------------------------"
 pacstrap /mnt --noconfirm --needed base base-devel linux linux-firmware btrfs-progs archlinux-keyring
-pacstrap /mnt --noconfirm --needed linux-tools linux-lts vim nano sudo wget linbnewt
+pacstrap /mnt --noconfirm --needed linux-tools linux-lts vim nano # sudo wget linbnewt
 
 genfstab -U /mnt >> /mnt/etc/fstab
 echo -e "\nDumping fstab, verify it's correct..."
@@ -217,13 +217,13 @@ echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
 cp -R ${SCRIPT_DIR} /mnt/root/install-script
 cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 
-echo "--------------------------------------"
-echo "--GRUB BIOS Bootloader Install&Check--"
-echo "--------------------------------------"
+echo "--------------------------------------------------------------------------"
+echo "-- GRUB BIOS Bootloader Install&Check"
+echo "--------------------------------------------------------------------------"
 if [[ ! -d "/sys/firmware/efi" ]]; then
-    grub-install --boot-directory=/mnt/boot ${DISK}
+    grub-install --target=x86_64-efi --efi-directory=/mnt/boot --bootloader-id=ROADWARRIOR ${DISK}
 fi
 
-echo "--------------------------------------"
-echo "--   SYSTEM READY FOR 1-setup       --"
-echo "--------------------------------------"
+echo "--------------------------------------------------------------------------"
+echo "--   SYSTEM READY FOR 1-setup"
+echo "--------------------------------------------------------------------------"
