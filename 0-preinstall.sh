@@ -16,7 +16,7 @@ done
 if [ -b /dev/mapper/cryptroot ]; then
     cryptsetup close cryptroot
 fi
-partprobe 2>/dev/null
+# partprobe 2>/dev/null
 rm -r /mnt
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -59,23 +59,23 @@ echo "--------------------------------------------------------------------------
 echo "Please select the disk to work on:"
 select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
 do
-    DISK=$ENTRY
-    if [[ -n "$DISK" ]]; then
-        echo "Installing Arch Linux on $DISK."
-        break
-    fi
+  DISK=$ENTRY
+  if [[ -n "$DISK" ]]; then
+    echo "Installing Arch Linux on $DISK."
+    break
+  fi
 done
 
 # Format warning
 echo "THIS WILL FORMAT AND DELETE ALL DATA ON THE DISK"
 read -p "Are you sure you want to continue (y/N):" formatdisk
 case $formatdisk in
-    y|Y|yes|Yes|YES)
-        ;;
-    *)
-        echo "Exiting..."
-        exit 1
-        ;;
+  y|Y|yes|Yes|YES)
+    ;;
+  *)
+    echo "Exiting..."
+    exit 1
+    ;;
 esac
 
 echo "--------------------------------------------------------------------------"
@@ -93,18 +93,18 @@ sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'LUKS' ${DISK} # partition 
 
 # Enable BIOS boot bit iff UEFI is not detected
 if [[ ! -d "/sys/firmware/efi" ]]; then
-    echo "UEFI mode not detected. BIOS support will be enabled. You should use UEFI."
-    read -p "ctrl-c to exit so you can check the BIOS, or press any key to continue..."
-    sgdisk -A 1:set:2 ${DISK}
+  echo "UEFI mode not detected. BIOS support will be enabled. You should use UEFI."
+  read -p "ctrl-c to exit so you can check the BIOS, or press any key to continue..."
+  sgdisk -A 1:set:2 ${DISK}
 fi
 
 # NVMe partitions are in the style /dev/nvme0n1p2
 # SATA partitions are in the style /dev/sda1
 # Add p to disk name if nvme
 if [[ ${DISK} =~ "nvme" ]]; then
-    DISKP=${DISK}p
+  DISKP=${DISK}p
 else
-    DISKP=${DISK}
+  DISKP=${DISK}
 fi
 
 echo "--------------------------------------------------------------------------"
@@ -118,11 +118,11 @@ mkfs.vfat -F32 -n "EFI" "${DISKP}2"
 # You will be asked for a password twice now
 echo "Launching Cryptsetup, you will be asked to enter your encryption password"
 while
-    read -r -s -p "Password: " password
-    echo ""
-    read -r -s -p "  Verify: " verifyPassword
-    echo ""
-    [[ -z "$password" || "$password" != "$verifyPassword" ]]
+  read -r -s -p "Password: " password
+  echo ""
+  read -r -s -p "  Verify: " verifyPassword
+  echo ""
+  [[ -z "$password" || "$password" != "$verifyPassword" ]]
 do true; done
 # cryptsetup has sane defaults
 # https://wiki.archlinux.org/title/dm-crypt/Device_encryption#Encryption_options_for_LUKS_mode
@@ -176,7 +176,7 @@ mkdir -p /mnt/swap
 mkdir -p /mnt/.snapshots
 mkdir -p /mnt/boot
 
-mount -t vfat -L "EFI" /mnt/boot
+mount -t vfat "${DISKP}2" /mnt/boot
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/mapper/cryptroot /mnt/home
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
@@ -184,8 +184,8 @@ mount -o defaults,noatime,subvol=@swap                                   /dev/ma
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
 
 if ! grep -qs '/mnt' /proc/mounts; then
-    echo "Drive is not mounted, can not continue"
-    exit 1
+  echo "Drive is not mounted, can not continue"
+  exit 1
 fi
 
 # Create btrfs swap file, substitute count for GB of ram if you want hibernate
@@ -221,7 +221,7 @@ echo "--------------------------------------------------------------------------
 echo "-- GRUB BIOS Bootloader Install&Check"
 echo "--------------------------------------------------------------------------"
 if [[ ! -d "/sys/firmware/efi" ]]; then
-    grub-install --target=x86_64-efi --efi-directory=/mnt/boot --bootloader-id=ROADWARRIOR ${DISK}
+  grub-install --target=x86_64-efi --efi-directory=/mnt/boot --bootloader-id=RoadwarriorArch ${DISK}
 fi
 
 echo "--------------------------------------------------------------------------"
