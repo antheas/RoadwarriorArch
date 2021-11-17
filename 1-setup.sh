@@ -7,34 +7,42 @@
 #   |____|_  /\____(____  |____ |  \__/\  / (____  /__|   |__|  |__|\____/|__|   
 #          \/           \/     \/       \/       \/                              
 #----------------------------------------------------------------------------------
-echo "--------------------------------------"
-echo "--          Network Setup           --"
-echo "--------------------------------------"
+
+echo "--------------------------------------------------------------------------"
+echo "- Network Setup   "
+echo "--------------------------------------------------------------------------"
 pacman -S networkmanager dhclient --noconfirm --needed
 systemctl enable --now NetworkManager
 
-echo "-------------------------------------------------"
-echo " Setting up mirrors for optimal download         "
-echo "-------------------------------------------------"
-pacman -S --noconfirm pacman-contrib curl
-pacman -S --noconfirm reflector rsync
+iso=$(curl -4 ifconfig.co/country-iso)
+echo "--------------------------------------------------------------------------"
+echo "- Setting $iso up mirrors for optimal download         "
+echo "--------------------------------------------------------------------------"
+# Parallel downloads
+sed -i 's/^#Para/Para/' /etc/pacman.conf
+pacman -S --noconfirm reflector
+# Sort mirrorlist based on country
 cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
+pacman -S --noconfirm pacman-contrib curl
 
+echo "--------------------------------------------------------------------------"
+echo "- Changing make config based on cores         "
+echo "--------------------------------------------------------------------------"
 nc=$(grep -c ^processor /proc/cpuinfo)
 echo "You have " $nc" cores."
-echo "-------------------------------------------------"
 echo "Changing the makeflags for "$nc" cores."
-TOTALMEM=$(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*')
 cp /etc/makepkg.conf /etc/makepkg.conf.bak
+TOTALMEM=$(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*')
 sed -i "s/#MAKEFLAGS=\"-j2\"/MAKEFLAGS=\"-j$nc\"/g" /etc/makepkg.conf
 if [[  $TOTALMEM -gt 8000000 ]]; then
   echo "Changing the compression settings for "$nc" cores."
   sed -i "s/COMPRESSXZ=(xz -c -z -)/COMPRESSXZ=(xz -c -T $nc -z -)/g" /etc/makepkg.conf
 fi
 
-echo "-------------------------------------------------"
-echo "       Setup Language to US and set locale       "
-echo "-------------------------------------------------"
+echo "--------------------------------------------------------------------------"
+echo "- Setup Language to US and set locale       "
+echo "--------------------------------------------------------------------------"
 source install.conf
 sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen
@@ -48,27 +56,9 @@ localectl --no-ask-password set-keymap us
 # Add sudo no password rights
 sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/' /etc/sudoers
 
-# Add parallel downloading
-sed -i 's/^#Para/Para/' /etc/pacman.conf
-
 # Enable multilib
 sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
 pacman -Sy --noconfirm
-
-# Determine processor type and install microcode
-proc_type=$(lscpu | awk '/Vendor ID:/ {print $3}')
-case "$proc_type" in
-  GenuineIntel)
-    print "Installing Intel microcode"
-    pacman -S --noconfirm intel-ucode
-    proc_ucode=intel-ucode.img
-    ;;
-  AuthenticAMD)
-    print "Installing AMD microcode"
-    pacman -S --noconfirm amd-ucode
-    proc_ucode=amd-ucode.img
-    ;;
-esac	
 
 # Graphics Drivers find and install
 if lspci | grep -E "NVIDIA|GeForce"; then
@@ -246,3 +236,9 @@ else
     echo "You are already a user proceed with aur installs"
 fi
 
+echo "--------------------------------------------------------------------------"
+echo "- GRUB BIOS Bootloader Install&Check"
+echo "--------------------------------------------------------------------------"
+# Has to be in chroot to run correctly, besides grub isn't available in the iso.
+grub-mkconfig -o /boot/grub/grub.cfg
+grub-install --target=x86_64-efi --bootloader-id=RoadwarriorArch ${DISK}

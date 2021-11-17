@@ -8,11 +8,9 @@
 #          \/           \/     \/       \/       \/                              
 #----------------------------------------------------------------------------------
 # if running the script multiple times, cleanup...
-# Remove swap, then all the btrfs mountpoints with last being root and close crypt container
+# Remove swap, btrfs mounts, and close luks container
 [[ -n $(cat /proc/swaps | grep swap) ]] && swapoff /mnt/swap/swapfile
-for D in /boot /home /var/cache /var/log /swap /.snapshots /; do
-    mountpoint -q "/mnt$D" && umount "/mnt$D"
-done
+mountpoint -q "/mnt" && umount -R "/mnt"
 if [ -b /dev/mapper/cryptroot ]; then
     cryptsetup close cryptroot
 fi
@@ -20,21 +18,6 @@ fi
 rm -r /mnt
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
-# If your iso is old you may have issues with the install
-# Updating database without running an upgrade...
-pacman -Sy
-
-echo "--------------------------------------------------------------------------"
-echo "- Setting up mirrors for optimal download  "
-echo "--------------------------------------------------------------------------"
-iso=$(curl -4 ifconfig.co/country-iso)
-timedatectl set-ntp true
-pacman -S --noconfirm pacman-contrib terminus-font
-setfont ter-v22b
-# Enables Parallel downloads in pacman
-sed -i 's/^#Para/Para/' /etc/pacman.conf
-pacman -S --noconfirm reflector rsync grub
 
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
@@ -44,14 +27,10 @@ echo -e "   |    |   (  <_> ) __ \\/ /_/ | \\        / / __ \\|  | \\/|  | \\/  
 echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\\____/|__|     "
 echo -e "          \\/           \\/     \\/       \\/       \\/                                "
 echo -e "----------------------------------------------------------------------------------"
-echo -e "- Setting up $iso mirrors for faster downloads"
-echo -e "----------------------------------------------------------------------------------"
+sleep 3
 
-reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
+timedatectl set-ntp true
 mkdir -p /mnt
-
-echo -e "\nInstalling prereqs...\n$HR"
-pacman -S --noconfirm gptfdisk btrfs-progs
 
 echo "--------------------------------------------------------------------------"
 echo "- Disk Partitioning  "
@@ -124,7 +103,7 @@ while
   echo ""
   [[ -z "$password" || "$password" != "$verifyPassword" ]]
 do true; done
-# cryptsetup has sane defaults
+# cryptsetup has sane defaults (luks2, etc)
 # https://wiki.archlinux.org/title/dm-crypt/Device_encryption#Encryption_options_for_LUKS_mode
 echo -n "$password" | cryptsetup luksFormat "${DISKP}3" -d -
 
@@ -147,11 +126,11 @@ mount /dev/mapper/cryptroot /mnt
 [[ -n $(ls /mnt) ]] && ls /mnt | xargs btrfs subvolume delete
 
 # https://wiki.archlinux.org/title/Btrfs#Partitionless_Btrfs_disk
-# @ /
-# @home /home
-# @cache /var/cache
-# @log /var/log
-# @swap /swap
+# @          /
+# @home      /home
+# @cache     /var/cache
+# @log       /var/log
+# @swap      /swap
 # @snapshots /.snapshots
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
@@ -176,6 +155,16 @@ mkdir -p /mnt/swap
 mkdir -p /mnt/.snapshots
 mkdir -p /mnt/boot
 
+# Why mount EFI partition on boot instead of /boot/efi:
+# In /boot/efi the kernel is encrypted, which limits evil maid attacks, doesn't leak
+# information about your setup.
+# However, GRUB has to perform the first unlock:
+# GRUB doesn't support LUKS2 (completely), has no timeout option (if your Thnkpad turns
+# on on its own in its bag it will turn into a Heatpad and drain its battery), and
+# takes 20 seconds to unlock. Also, no retries. You make a mistake and you'll
+# drop into a grub rescue shell. Then you either have to reboot the laptop or 
+# remember a series of commands.
+# https://wiki.archlinux.org/title/GRUB#Encrypted_/boot
 mount -t vfat "${DISKP}2" /mnt/boot
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/mapper/cryptroot /mnt/home
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
@@ -204,25 +193,62 @@ swapon ./swapfile
 echo "--------------------------------------------------------------------------"
 echo "-- Arch Install on Main Drive"
 echo "--------------------------------------------------------------------------"
-pacstrap /mnt --noconfirm --needed base base-devel linux linux-firmware btrfs-progs archlinux-keyring
+# Determine processor type and install microcode
+proc_type=$(lscpu | awk '/Vendor ID:/ {print $3}')
+case "$proc_type" in
+  GenuineIntel)
+    echo "Installing Intel microcode"
+    MICROCODE=intel-ucode
+    ;;
+  AuthenticAMD)
+    echo "Installing AMD microcode"
+    MICROCODE=amd-ucode
+    ;;
+esac	
+
+pacstrap /mnt --noconfirm --needed base base-devel linux linux-firmware btrfs-progs archlinux-keyring grub $MICROCODE
+# Optional tools, incl. lts kernel
 pacstrap /mnt --noconfirm --needed linux-tools linux-lts vim nano # sudo wget linbnewt
 
-genfstab -U /mnt >> /mnt/etc/fstab
+genfstab -U /mnt > /mnt/etc/fstab
 echo -e "\nDumping fstab, verify it's correct..."
 cat /mnt/etc/fstab
 read -p "Press any key to continue..."
 
-# Add ubuntu keyserver, copy install script to new system, copy updated mirrorlist
+echo "--------------------------------------------------------------------------"
+echo "--  Configuring mkinitcpio & /etc/default/grub"
+echo "--------------------------------------------------------------------------"
+
+# Configuring /etc/mkinitcpio.conf.
+print "Configuring /etc/mkinitcpio.conf."
+# mkinitpio hooks with sd-encrypt:
+# systemd supports LUKS2 unlock by password, with timeouts and preview, and by TPM
+# https://wiki.archlinux.org/title/mkinitcpio#HOOKS
+sed -i "s,HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems)\n#HOOKS,g" /mnt/etc/mkinitcpio.conf
+# Change initramfs compression from gzip (default) to zstd
+sed -i "s,#COMPRESSION=(zstd),COMPRESSION=(zstd),g" /mnt/etc/mkinitcpio.conf
+
+# Setting up LUKS2 encryption in grub.
+print "Setting up grub config."
+LUKS_UUID=$(blkid -s UUID -o value /dev/mapper/cryptroot)
+
+# BTRFS hibernate, it has to be in btrfs because we want to use an encrypted swap
+# That's also variable in case you upgrade your ram or want to remove it in the future.
+# https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate#Hibernation_into_swap_file_on_Btrfs
+SWAP_UUID=$(findmnt -no UUID -T /swap/swapfile)
+gcc -O2 -o btrfs_map_physical physical.c
+SWAP_OFFSET=$(./btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
+echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
+# Why hibernate? Because if you leave your laptop on standby it will run until
+# it runs out of battery and you'll lose your session.
+# With hibernate the laptop will automatically turn off after a set amount of hours.
+# Bonus: the luks partition will be locked, preventing cold boot attacks.
+
+sed -i "s,quiet,quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET},g" /mnt/etc/default/grub
+
+# Add ubuntu keyserver, copy install script to new system
 echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
 cp -R ${SCRIPT_DIR} /mnt/root/install-script
-cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
-
-echo "--------------------------------------------------------------------------"
-echo "-- GRUB BIOS Bootloader Install&Check"
-echo "--------------------------------------------------------------------------"
-if [[ ! -d "/sys/firmware/efi" ]]; then
-  grub-install --target=x86_64-efi --efi-directory=/mnt/boot --bootloader-id=RoadwarriorArch ${DISK}
-fi
 
 echo "--------------------------------------------------------------------------"
 echo "--   SYSTEM READY FOR 1-setup"
