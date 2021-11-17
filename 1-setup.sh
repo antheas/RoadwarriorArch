@@ -8,6 +8,16 @@
 #          \/           \/     \/       \/       \/                              
 #----------------------------------------------------------------------------------
 
+echo -e "----------------------------------------------------------------------------------"
+echo -e "  __________                 ._____      __                    .__                "
+echo -e "  \\______   \\ _________    __| _/  \\    /  \\____ ______________|__| ___________   "
+echo -e "   |       _//  _ \\__  \\  / __ |\\   \\/\\/   |__  \\\\_  __ \\_  __ \\  |/  _ \\_  __ \\  "
+echo -e "   |    |   (  <_> ) __ \\/ /_/ | \\        / / __ \\|  | \\/|  | \\/  (  <_> )  | \\/  "
+echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\\____/|__|     "
+echo -e "          \\/           \\/     \\/       \\/       \\/                                "
+echo -e "----------------------------------------------------------------------------------"
+sleep 3
+
 echo "--------------------------------------------------------------------------"
 echo "- Network Setup   "
 echo "--------------------------------------------------------------------------"
@@ -70,149 +80,61 @@ elif lspci | grep -E "Integrated Graphics Controller"; then
     pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
 fi
 
-echo -e "\nInstalling Base System\n"
-
-# Install xorg packages
+echo "--------------------------------------------------------------------------"
+echo "- Installing base system packages       "
+echo "--------------------------------------------------------------------------"
 alias pi=pacman -S --noconfirm --needed
-pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit # Install xorg
-pi plasma # Install plasma group
-pi alsa-plugins alsa-utils # Audio packages
 
-pi ark zip unzip # Compression
+# Install mesa and xorg to power display
+pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
+# Install plasma group + kde, desktop environment, sddm login
+pi plasma kde-utilities kde-system zeroconf-ioslave sddm
+# Some apps are part of kde-applications which is too large
+pi gwenview okular spectacle
+
+# Compression
+pi ark zip unzip unrar p7zip lzop 
+# Terminal utils
 pi zsh bash-completion
+# Available with oh-my-zsh, install from there
+# 'zsh-syntax-highlighting' 
+# 'zsh-autosuggestions'
+
+# Audio packages + manager
+pi alsa-plugins alsa-utils                         
+pi pulseaudio pulseaudio-alsa pulseaudio-Bluetooth
+# Bluetooth provider
+pi bluez bluez-libs bluez-utils                    
+
+# Fuse mounts, add GDrive, OneDrive etc with rclone
+pi rclone fuse2 fuse3
+# Python basics
+pi python python2 python-pip python2-pip
+
+# Useful tools, netcat = nc, ufw is firewall, snapper does snapshots
+pi git openssh htop nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync ntp pacman-contrib
+# Disk tools
+pi gparted gptfdisk ntfs-3g dosfstools exfat-utils
+
+# Gaming specific
+# pi lutris steam gamemode
+# Wine, avoid if possible
+# pi wine wine-gecko wine-mono winetrics
+# Virtual machines, alternative to Virtualbox
+# pi qemu virt-manager virt-viewer 
+
+# Fun packages
+pi neofetch cmatrix kitty
 
 PKGS=(
-# 'xterm'
-# 'audiocd-kio' 
-'bash-completion'
-'bind'
-'binutils'
-'bison'
-'bluedevil'
-'bluez'
-'bluez-libs'
-'bluez-utils'
-'breeze'
-'breeze-gtk'
-'bridge-utils'
-'btrfs-progs'
-'celluloid' # video players
-'cmatrix'
-'code' # Visual Studio code
-'cronie'
-'cups'
-'dialog'
-'discover'
-'dolphin'
-'dosfstools'
-'dtc'
-'efibootmgr' # EFI boot
-'egl-wayland'
-'exfat-utils'
-'extra-cmake-modules'
-'filelight'
-'flex'
-'fuse2'
-'fuse3'
-'fuseiso'
-'gamemode'
-'gcc'
-'gimp' # Photo editing
-'git'
-'gparted' # partition management
-'gptfdisk'
-'grub'
-'grub-customizer'
-'gst-libav'
-'gst-plugins-good'
-'gst-plugins-ugly'
-'gwenview'
-'haveged'
-'htop'
-'iptables-nft'
-'jdk-openjdk' # Java 17
-'kate'
-'kcodecs'
-'kcoreaddons'
-'kdeplasma-addons'
-'kde-gtk-config'
-'kinfocenter'
-'kscreen'
-'kvantum-qt5'
-'kitty'
-'konsole'
-'kscreen'
-'layer-shell-qt'
-'libdvdcss'
-'libnewt'
-'libtool'
-'linux'
-'linux-firmware'
-'linux-headers'
-'lsof'
-'lutris'
-'lzop'
-'m4'
-'make'
-'milou'
-'nano'
-'neofetch'
-'networkmanager'
-'ntfs-3g'
-'ntp'
-'okular'
-'openbsd-netcat'
-'openssh'
-'os-prober'
-'oxygen'
-'p7zip'
-'pacman-contrib'
-'patch'
-'picom'
-'pkgconf'
-'plasma-meta'
-'plasma-nm'
-'powerdevil'
-'powerline-fonts'
-'print-manager'
-'pulseaudio'
-'pulseaudio-alsa'
-'pulseaudio-bluetooth'
-'python-notify2'
-'python-psutil'
-'python-pyqt5'
-'python-pip'
-'qemu'
-'rsync'
-'sddm'
-'sddm-kcm'
-'snapper'
-'spectacle'
-'steam'
-'sudo'
-'swtpm'
-'synergy'
-'systemsettings'
-'terminus-font'
-'traceroute'
-'ufw'
-'unrar'
-'unzip'
-'usbutils'
-'vim'
-'virt-manager'
-'virt-viewer'
-'wget'
-'which'
-'wine-gecko'
-'wine-mono'
-'winetricks'
-'xdg-desktop-portal-kde'
-'xdg-user-dirs'
-'zeroconf-ioslave'
-'zsh'
-'zsh-syntax-highlighting'
-'zsh-autosuggestions'
+'cronie'          # Crontab
+'cups'            # Printer management
+# 'picom'         # Compositor that helps with tearing (?)
+'powerline-fonts' # powerline fonts for vim/ZSH
+# 'synergy'       # Share mouse between multiple PCs
+'traceroute'      # allows viewing network hops to a host
+'usbutils'        # lists usb devices
+'xdg-user-dirs'   # localizes user dirs such as ~/Music
 )
 
 for PKG in "${PKGS[@]}"; do

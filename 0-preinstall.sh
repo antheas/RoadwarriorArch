@@ -206,9 +206,9 @@ case "$proc_type" in
     ;;
 esac	
 
-pacstrap /mnt --noconfirm --needed base base-devel linux linux-firmware btrfs-progs archlinux-keyring grub $MICROCODE
+pacstrap /mnt --noconfirm --needed base base-devel linux linux-headers linux-firmware btrfs-progs archlinux-keyring grub efibootmgr $MICROCODE
 # Optional tools, incl. lts kernel
-pacstrap /mnt --noconfirm --needed linux-tools linux-lts vim nano # sudo wget linbnewt
+pacstrap /mnt --noconfirm --needed linux-tools linux-lts linux-lts-headers apparmor vim nano # sudo wget linbnewt
 
 genfstab -U /mnt > /mnt/etc/fstab
 echo -e "\nDumping fstab, verify it's correct..."
