@@ -25,7 +25,18 @@ echo -e "   |    |   (  <_> ) __ \\/ /_/ | \\        / / __ \\|  | \\/|  | \\/  
 echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\\____/|__|     "
 echo -e "          \\/           \\/     \\/       \\/       \\/                                "
 echo -e "----------------------------------------------------------------------------------"
-sleep 3
+sleep 2
+
+iso=$(curl -4 ifconfig.co/country-iso)
+echo ""
+echo "--------------------------------------------------------------------------"
+echo "- Setting $iso up mirrors for optimal download         "
+echo "--------------------------------------------------------------------------"
+# Parallel downloads
+sed -i 's/^#Para/Para/' /etc/pacman.conf
+# Sort mirrorlist based on country
+cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
 
 timedatectl set-ntp true
 mkdir -p /mnt
@@ -206,45 +217,16 @@ esac
 
 pacstrap /mnt --noconfirm --needed base base-devel linux linux-headers linux-firmware btrfs-progs archlinux-keyring grub efibootmgr $MICROCODE
 # Optional tools, incl. lts kernel
-pacstrap /mnt --noconfirm --needed linux-tools linux-lts linux-lts-headers apparmor vim nano # sudo wget linbnewt
+pacstrap /mnt --noconfirm --needed linux-tools linux-lts linux-lts-headers apparmor vim nano zstd # sudo wget linbnewt
 
 genfstab -U /mnt > /mnt/etc/fstab
-echo -e "\nDumping fstab, verify it's correct..."
+echo -e "\nDumping fstab"
 cat /mnt/etc/fstab
-read -p "Press any key to continue..."
-
-echo "--------------------------------------------------------------------------"
-echo "--  Configuring mkinitcpio & /etc/default/grub"
-echo "--------------------------------------------------------------------------"
-
-# Configuring /etc/mkinitcpio.conf.
-print "Configuring /etc/mkinitcpio.conf."
-# mkinitpio hooks with sd-encrypt:
-# systemd supports LUKS2 unlock by password, with timeouts and preview, and by TPM
-# https://wiki.archlinux.org/title/mkinitcpio#HOOKS
-sed -i "s,HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems)\n#HOOKS,g" /mnt/etc/mkinitcpio.conf
-# Change initramfs compression from gzip (default) to zstd
-sed -i "s,#COMPRESSION=(zstd),COMPRESSION=(zstd),g" /mnt/etc/mkinitcpio.conf
-
-# Setting up LUKS2 encryption in grub.
-print "Setting up grub config."
-LUKS_UUID=$(blkid -s UUID -o value /dev/mapper/cryptroot)
-
-# BTRFS hibernate, it has to be in btrfs because we want to use an encrypted swap
-# That's also variable in case you upgrade your ram or want to remove it in the future.
-# https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate#Hibernation_into_swap_file_on_Btrfs
-SWAP_UUID=$(findmnt -no UUID -T /swap/swapfile)
-gcc -O2 -o btrfs_map_physical physical.c
-SWAP_OFFSET=$(./btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
-echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
-# Why hibernate? Because if you leave your laptop on standby it will run until
-# it runs out of battery and you'll lose your session.
-# With hibernate the laptop will automatically turn off after a set amount of hours.
-# Bonus: the luks partition will be locked, preventing cold boot attacks.
-
-sed -i "s,quiet,quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET},g" /mnt/etc/default/grub
+read -p "Verify it's correct and press any key to continue..."
 
 # Add ubuntu keyserver
+# https://wiki.archlinux.org/title/Pacman/Package_signing#Change_keyserver
+echo "Adding ubuntu keyserver to pacman..."
 echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
 
 echo "--------------------------------------------------------------------------"
