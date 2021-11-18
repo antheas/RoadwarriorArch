@@ -25,11 +25,12 @@ echo "--------------------------------------------------------------------------
 
 echo "Installing YAY"
 cd ~
+rm -f -r yay
 mkdir -p yay && cd yay
 git clone "https://aur.archlinux.org/yay.git" .
 makepkg -si --noconfirm
 cd ..
-rm -r yay
+rm -f -r yay
 yay -Syu
 ya () {
   yay -S --noconfirm $@

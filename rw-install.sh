@@ -1,10 +1,17 @@
 #!/bin/bash
 bash 0-preinstall.sh
 
+# Copy repo to root
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+rm -R -f /mnt/root/install-script
 cp -R ${SCRIPT_DIR} /mnt/root/install-script
+
 arch-chroot /mnt /root/install-script/1-setup.sh
 
+# Copy repo to user and give perms for it
 source /mnt/root/install-script/install.conf
-arch-chroot /mnt "cp -R /root/install-script /home/$username/install-script && chown -R $username /home/$username/install-script"
+arch-chroot /mnt rm -R -f /home/$username/install-script
+arch-chroot /mnt cp -R /root/install-script /home/$username/install-script
+arch-chroot /mnt chown -R $username /home/$username/install-script
+
 arch-chroot /mnt /usr/bin/runuser -u $username -- /home/$username/install-script/2-user.sh

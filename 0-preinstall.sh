@@ -222,7 +222,7 @@ pacstrap /mnt --noconfirm --needed linux-tools linux-lts linux-lts-headers appar
 genfstab -U /mnt > /mnt/etc/fstab
 echo -e "\nDumping fstab"
 cat /mnt/etc/fstab
-read -p "Verify it's correct and press any key to continue..."
+read -p "Verify fstab is correct and press any key to continue..."
 
 # Add ubuntu keyserver
 # https://wiki.archlinux.org/title/Pacman/Package_signing#Change_keyserver

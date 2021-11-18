@@ -19,6 +19,22 @@ echo -e "          \\/           \\/     \\/       \\/       \\/                
 echo -e "----------------------------------------------------------------------------------"
 sleep 2
 
+echo "Please select the disk you installed Arch on with the previous script:"
+select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
+do
+  DISK=$ENTRY
+  if [[ -n "$DISK" ]]; then
+    echo "Installing GRUB on $DISK."
+    if [[ ${DISK} =~ "nvme" ]]; then
+      CRYPT_PART=${DISK}p3
+    else
+      CRYPT_PART=${DISK}3
+    fi
+    echo "Kernel will unlock partition ${CRYPT_PART}."
+    break
+  fi
+done
+
 echo ""
 echo "--------------------------------------------------------------------------"
 echo "- Network Setup   "
@@ -86,6 +102,11 @@ sed -i "s,^#COMPRESSION=[\(\"]zstd[\)\"],COMPRESSION=\"zstd\",g" /etc/mkinitcpio
 # Create vconsole fle
 echo "KEYMAP=us" > /etc/vconsole.conf
 
+# Ignore:
+# ==> WARNING: Possibly missing firmware for module: aic94xx
+# ==> WARNING: Possibly missing firmware for module: wd719x
+# ==> WARNING: Possibly missing firmware for module: xhci_pci
+# https://wiki.archlinux.org/title/Mkinitcpio#Possibly_missing_firmware_for_module_XXXX
 mkinitcpio -P
 
 echo "--------------------------------------------------------------------------"
@@ -93,7 +114,7 @@ echo "- GRUB BIOS Bootloader Install&Check"
 echo "--------------------------------------------------------------------------"
 # Setting up LUKS2 encryption in grub.
 echo "Setting up grub config."
-LUKS_UUID=$(blkid -s UUID -o value /dev/mapper/cryptroot)
+LUKS_UUID=$(blkid -s UUID -o value ${CRYPT_PART})
 
 # BTRFS hibernate, it has to be in btrfs because we want to use an encrypted swap
 # That's also variable in case you upgrade your ram or want to remove it in the future.
@@ -110,21 +131,12 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
 sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
-grub-mkconfig -o /boot/grub/grub.cfg
 if [[ -d "/sys/firmware/efi" ]]; then
   grub-install --target=x86_64-efi --efi-directory=/boot/ --bootloader-id=RoadwarriorArch
 else
-  echo "Please select the disk to install GRUB on:"
-  select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
-  do
-    DISK=$ENTRY
-    if [[ -n "$DISK" ]]; then
-      echo "Installing GRUB on $DISK."
-      break
-    fi
-  done
   grub-install --bootloader-id=RoadwarriorArch ${DISK}
 fi
+grub-mkconfig -o /boot/grub/grub.cfg
 
 echo "--------------------------------------------------------------------------"
 echo "- Creating user"
