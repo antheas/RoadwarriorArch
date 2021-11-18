@@ -85,36 +85,36 @@ echo "- Installing base system packages       "
 echo "--------------------------------------------------------------------------"
 alias pi=pacman -S --noconfirm --needed
 
-# Install mesa and xorg to power display
+echo "Install mesa and xorg to power display"
 pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
-# Install plasma group + kde, desktop environment, sddm login
+echo "Install plasma group + kde, desktop environment, sddm login"
 pi plasma kde-utilities kde-system zeroconf-ioslave sddm
-# Some apps are part of kde-applications which is too large
+echo "Install a subsection of kde-applications, which is too large"
 pi gwenview okular spectacle
 
-# Compression
+echo "Install Compression Utils"
 pi ark zip unzip unrar p7zip lzop 
-# Terminal utils
+echo "Install Terminal Utils (use zsh!)"
 pi zsh bash-completion
 # Available with oh-my-zsh, install from there
 # 'zsh-syntax-highlighting' 
 # 'zsh-autosuggestions'
 
-# Audio packages + manager
+echo "Install audio packages and manager"
 pi alsa-plugins alsa-utils                         
 pi pulseaudio pulseaudio-alsa pulseaudio-Bluetooth
-# Bluetooth provider
+echo "Install Bluetooth provider"
 pi bluez bluez-libs bluez-utils                    
 
-# Fuse mounts, add GDrive, OneDrive etc with rclone
+echo "Install Fuse mounts, mount GDrive, OneDrive etc with rclone"
 pi rclone fuse2 fuse3
-# Python basics
+echo "Install Python"
 pi python python2 python-pip python2-pip
 
-# Useful tools, netcat = nc, ufw is firewall, snapper does snapshots
+echo "Install a collection of useful tools"
 pi git openssh htop nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync ntp pacman-contrib
-# Disk tools
-pi gparted gptfdisk ntfs-3g dosfstools exfat-utils
+echo "Install Disk Utils"
+pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils
 
 # Gaming specific
 # pi lutris steam gamemode
@@ -123,9 +123,10 @@ pi gparted gptfdisk ntfs-3g dosfstools exfat-utils
 # Virtual machines, alternative to Virtualbox
 # pi qemu virt-manager virt-viewer 
 
-# Fun packages
+echo "Install Fun packages"
 pi neofetch cmatrix kitty
 
+echo "Install Misc Packages"
 PKGS=(
 'cronie'          # Crontab
 'cups'            # Printer management
