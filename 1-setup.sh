@@ -7,6 +7,7 @@
 #   |____|_  /\____(____  |____ |  \__/\  / (____  /__|   |__|  |__|\____/|__|   
 #          \/           \/     \/       \/       \/                              
 #----------------------------------------------------------------------------------
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
@@ -22,7 +23,7 @@ echo ""
 echo "--------------------------------------------------------------------------"
 echo "- Network Setup   "
 echo "--------------------------------------------------------------------------"
-pacman -S networkmanager dhclient --noconfirm --needed
+pacman -Syu networkmanager dhclient --noconfirm --needed
 systemctl enable --now NetworkManager
 
 iso=$(curl -4 ifconfig.co/country-iso)
@@ -31,7 +32,7 @@ echo "- Setting $iso up mirrors for optimal download         "
 echo "--------------------------------------------------------------------------"
 # Parallel downloads
 sed -i 's/^#Para/Para/' /etc/pacman.conf
-pacman -S --noconfirm reflector
+pacman -S --noconfirm rsync reflector
 # Sort mirrorlist based on country
 cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
@@ -54,7 +55,7 @@ fi
 echo "--------------------------------------------------------------------------"
 echo "- Setup Language to US and set locale       "
 echo "--------------------------------------------------------------------------"
-source install.conf
+source ${SCRIPT_DIR}/install.conf
 sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 locale-gen
 timedatectl --no-ask-password set-timezone America/Chicago
@@ -71,23 +72,96 @@ sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/' /et
 sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
 pacman -Sy --noconfirm
 
-# Graphics Drivers find and install
-if lspci | grep -E "NVIDIA|GeForce"; then
-  # FIXME: add optimus setup
-  pacman -S nvidia --noconfirm --needed
-  nvidia-xconfig
-elif lspci | grep -E "Radeon"; then
-  pacman -S xf86-video-amdgpu --noconfirm --needed
-elif lspci | grep -E "Integrated Graphics Controller"; then
-  pacman -S --needed --noconfirm intel-media-driver libva-utils intel-gpu-tools
-# elif lspci | grep -E "Integrated Graphics Controller"; then
-#   pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
+echo "--------------------------------------------------------------------------"
+echo "--  Configuring mkinitcpio"
+echo "--------------------------------------------------------------------------"
+# Configuring /etc/mkinitcpio.conf.
+echo "Configuring /etc/mkinitcpio.conf."
+# mkinitpio hooks with sd-encrypt:
+# systemd supports LUKS2 unlock by password, with timeouts and preview, and by TPM
+# https://wiki.archlinux.org/title/mkinitcpio#HOOKS
+sed -i "s,^HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck)\n#HOOKS,g" /etc/mkinitcpio.conf
+# Change initramfs compression from gzip (default) to zstd
+sed -i "s,^#COMPRESSION=[\(\"]zstd[\)\"],COMPRESSION=\"zstd\",g" /etc/mkinitcpio.conf
+# Create vconsole fle
+echo "KEYMAP=us" > /etc/vconsole.conf
+
+mkinitcpio -P
+
+echo "--------------------------------------------------------------------------"
+echo "- GRUB BIOS Bootloader Install&Check"
+echo "--------------------------------------------------------------------------"
+# Setting up LUKS2 encryption in grub.
+echo "Setting up grub config."
+LUKS_UUID=$(blkid -s UUID -o value /dev/mapper/cryptroot)
+
+# BTRFS hibernate, it has to be in btrfs because we want to use an encrypted swap
+# That's also variable in case you upgrade your ram or want to remove it in the future.
+# https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate#Hibernation_into_swap_file_on_Btrfs
+SWAP_UUID=$(findmnt -no UUID -T /swap/swapfile)
+gcc -O2 -o ${SCRIPT_DIR}/btrfs_map_physical ${SCRIPT_DIR}/physical.c
+SWAP_OFFSET=$(${SCRIPT_DIR}/btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
+echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
+# Why hibernate? Because if you leave your laptop on standby it will run until
+# it runs out of battery and you'll lose your session.
+# With hibernate the laptop will automatically turn off after a set amount of hours.
+# Bonus: the luks partition will be locked, preventing cold boot attacks.
+
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+
+# Has to be in chroot to run correctly, besides grub isn't available in the iso.
+grub-mkconfig -o /boot/grub/grub.cfg
+if [[ -d "/sys/firmware/efi" ]]; then
+  grub-install --target=x86_64-efi --efi-directory=/boot/ --bootloader-id=RoadwarriorArch
+else
+  echo "Please select the disk to install GRUB on:"
+  select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
+  do
+    DISK=$ENTRY
+    if [[ -n "$DISK" ]]; then
+      echo "Installing GRUB on $DISK."
+      break
+    fi
+  done
+  grub-install --bootloader-id=RoadwarriorArch ${DISK}
+fi
+
+echo "--------------------------------------------------------------------------"
+echo "- Creating user"
+echo "--------------------------------------------------------------------------"
+echo "${SCRIPT_DIR}/install.conf"
+if ! source ${SCRIPT_DIR}/install.conf; then
+  read -p "Enter username: " username
+  read -p "Enter password: " password
+  read -p "Enter hostname: " hostname
+  echo "username=$username\npassword=$password\nhostname=$hostname" >> ${SCRIPT_DIR}/install.conf
+fi
+
+if [ $(whoami) = "root"  ]; then
+  useradd -m -G wheel -s /bin/bash $username 
+  echo "$username:$password" | chpasswd
+  echo $hostname > /etc/hostname
 fi
 
 echo "--------------------------------------------------------------------------"
 echo "- Installing base system packages       "
 echo "--------------------------------------------------------------------------"
-alias pi="pacman -S --noconfirm --needed"
+pi () {
+  pacman -S --noconfirm --needed $@
+}
+
+# Graphics Drivers find and install
+if lspci | grep -E "NVIDIA|GeForce"; then
+  # FIXME: add optimus setup
+  pi nvidia
+  nvidia-xconfig
+elif lspci | grep -E "Radeon"; then
+ pi xf86-video-amdgpu
+elif lspci | grep -E "Integrated Graphics Controller"; then
+  pi intel-media-driver libva-utils intel-gpu-tools
+# elif lspci | grep -E "Integrated Graphics Controller"; then
+#   pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
+fi
 
 echo "Install mesa and xorg to power display"
 pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
@@ -116,7 +190,7 @@ echo "Install Python"
 pi python python2 python-pip python2-pip
 
 echo "Install a collection of useful tools"
-pi git openssh htop bmon nano os-prober openbsd-netcat inxi ufw lsof vim wget snapper rsync ntp pacman-contrib openvpn
+pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync ntp pacman-contrib openvpn
 echo "Install Disk Utils"
 pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 
@@ -135,14 +209,14 @@ pi neofetch cmatrix kitty
 
 echo "Install Misc Packages"
 PKGS=(
-'cronie'          # Crontab
-'cups'            # Printer management
-# 'picom'         # Compositor that helps with tearing (?)
-'powerline-fonts' # powerline fonts for vim/ZSH
-# 'synergy'       # Share mouse between multiple PCs
-'traceroute'      # allows viewing network hops to a host
-'usbutils'        # lists usb devices
-'xdg-user-dirs'   # localizes user dirs such as ~/Music
+  'cronie'          # Crontab
+  'cups'            # Printer management
+  # 'picom'         # Compositor that helps with tearing (?)
+  'powerline-fonts' # powerline fonts for vim/ZSH
+  # 'synergy'       # Share mouse between multiple PCs
+  'traceroute'      # allows viewing network hops to a host
+  'usbutils'        # lists usb devices
+  'xdg-user-dirs'   # localizes user dirs such as ~/Music
 )
 
 for PKG in "${PKGS[@]}"; do
@@ -151,63 +225,6 @@ for PKG in "${PKGS[@]}"; do
 done
 
 echo -e "\nDone!\n"
-
-echo "--------------------------------------------------------------------------"
-echo "- Creating user"
-echo "--------------------------------------------------------------------------"
-if ! source install.conf; then
-  read -p "Enter username: " username
-  read -p "Enter password: " password
-  read -p "Enter hostname: " hostname
-  echo "username=$username\npassword=$password\nhostname=$hostname" >> install.conf
-fi
-
-if [ $(whoami) = "root"  ]; then
-  useradd -m -G wheel -s /bin/bash $username 
-  echo "$password" | passwd $username --stdin
-  cp -R /root/ArchTitus /home/$username/
-  chown -R $username: /home/$username/ArchTitus
-  echo $hostname > /etc/hostname
-fi
-
-echo "--------------------------------------------------------------------------"
-echo "--  Configuring mkinitcpio"
-echo "--------------------------------------------------------------------------"
-
-# Configuring /etc/mkinitcpio.conf.
-echo "Configuring /etc/mkinitcpio.conf."
-# mkinitpio hooks with sd-encrypt:
-# systemd supports LUKS2 unlock by password, with timeouts and preview, and by TPM
-# https://wiki.archlinux.org/title/mkinitcpio#HOOKS
-sed -i "s,^HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems)\n#HOOKS,g" /etc/mkinitcpio.conf
-# Change initramfs compression from gzip (default) to zstd
-sed -i "s,^#COMPRESSION=[\(\"]zstd[\)\"],COMPRESSION=\"zstd\",g" /etc/mkinitcpio.conf
-mkinitcpio -P
-
-echo "--------------------------------------------------------------------------"
-echo "- GRUB BIOS Bootloader Install&Check"
-echo "--------------------------------------------------------------------------"
-# Setting up LUKS2 encryption in grub.
-echo "Setting up grub config."
-LUKS_UUID=$(blkid -s UUID -o value /dev/mapper/cryptroot)
-
-# BTRFS hibernate, it has to be in btrfs because we want to use an encrypted swap
-# That's also variable in case you upgrade your ram or want to remove it in the future.
-# https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate#Hibernation_into_swap_file_on_Btrfs
-SWAP_UUID=$(findmnt -no UUID -T /swap/swapfile)
-gcc -O2 -o btrfs_map_physical physical.c
-SWAP_OFFSET=$(./btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
-echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
-# Why hibernate? Because if you leave your laptop on standby it will run until
-# it runs out of battery and you'll lose your session.
-# With hibernate the laptop will automatically turn off after a set amount of hours.
-# Bonus: the luks partition will be locked, preventing cold boot attacks.
-
-sed -i "s,quiet,quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET},g" /mnt/etc/default/grub
-
-# Has to be in chroot to run correctly, besides grub isn't available in the iso.
-grub-mkconfig -o /boot/grub/grub.cfg
-grub-install --target=x86_64-efi --bootloader-id=RoadwarriorArch ${DISK}
 
 echo "--------------------------------------------------------------------------"
 echo "- Enable Essential Services "

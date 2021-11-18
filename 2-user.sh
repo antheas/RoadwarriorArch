@@ -30,7 +30,10 @@ git clone "https://aur.archlinux.org/yay.git" .
 makepkg -si --noconfirm
 cd ..
 rm -r yay
-alias ya="yay -S --noconfirm"
+yay -Syu
+ya () {
+  yay -S --noconfirm $@
+}
 
 echo "Installing Fonts"
 ya nerd-fonts-fira-code
