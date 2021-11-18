@@ -1,66 +1,67 @@
 #!/usr/bin/env bash
-#-------------------------------------------------------------------------
-#   █████╗ ██████╗  ██████╗██╗  ██╗████████╗██╗████████╗██╗   ██╗███████╗
-#  ██╔══██╗██╔══██╗██╔════╝██║  ██║╚══██╔══╝██║╚══██╔══╝██║   ██║██╔════╝
-#  ███████║██████╔╝██║     ███████║   ██║   ██║   ██║   ██║   ██║███████╗
-#  ██╔══██║██╔══██╗██║     ██╔══██║   ██║   ██║   ██║   ██║   ██║╚════██║
-#  ██║  ██║██║  ██║╚██████╗██║  ██║   ██║   ██║   ██║   ╚██████╔╝███████║
-#  ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝   ╚═╝    ╚═════╝ ╚══════╝
-#-------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
+#  __________                 ._____      __                    .__              
+#  \______   \ _________    __| _/  \    /  \____ ______________|__| ___________ 
+#   |       _//  _ \__  \  / __ |\   \/\/   |__  \\_  __ \_  __ \  |/  _ \_  __ \
+#   |    |   (  <_> ) __ \/ /_/ | \        / / __ \|  | \/|  | \/  (  <_> )  | \/
+#   |____|_  /\____(____  |____ |  \__/\  / (____  /__|   |__|  |__|\____/|__|   
+#          \/           \/     \/       \/       \/                              
+#----------------------------------------------------------------------------------
 
-echo -e "\nINSTALLING AUR SOFTWARE\n"
-# You can solve users running this script as root with this and then doing the same for the next for statement. However I will leave this up to you.
+echo -e "----------------------------------------------------------------------------------"
+echo -e "  __________                 ._____      __                    .__                "
+echo -e "  \\______   \\ _________    __| _/  \\    /  \\____ ______________|__| ___________   "
+echo -e "   |       _//  _ \\__  \\  / __ |\\   \\/\\/   |__  \\\\_  __ \\_  __ \\  |/  _ \\_  __ \\  "
+echo -e "   |    |   (  <_> ) __ \\/ /_/ | \\        / / __ \\|  | \\/|  | \\/  (  <_> )  | \\/  "
+echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\\____/|__|     "
+echo -e "          \\/           \\/     \\/       \\/       \\/                                "
+echo -e "----------------------------------------------------------------------------------"
+sleep 3
 
-echo "CLONING: YAY"
+echo ""
+echo "--------------------------------------------------------------------------"
+echo "- Installing AUR & Software  "
+echo "--------------------------------------------------------------------------"
+
+echo "Installing YAY"
 cd ~
-git clone "https://aur.archlinux.org/yay.git"
-cd ${HOME}/yay
+mkdir -p yay && cd yay
+git clone "https://aur.archlinux.org/yay.git" .
 makepkg -si --noconfirm
-cd ~
-touch "$HOME/.cache/zshhistory"
-git clone "https://github.com/ChrisTitusTech/zsh"
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git $HOME/powerlevel10k
-ln -s "$HOME/zsh/.zshrc" $HOME/.zshrc
+cd ..
+rm -r yay
+alias ya="yay -S --noconfirm"
+
+echo "Installing Fonts"
+ya nerd-fonts-fira-code
+ya adobe-source-han-sans-cn-fonts adobe-source-han-sans-jp-fonts adobe-source-han-sans-kr-fonts adobe-source-sans-fonts
+ya ttf-inconsolata ttf-indic-otf ttf-roboto ttf-windows
+
+echo "Installing Apps"
+ya zotero xournalpp libreoffice-still
+ya visual-studio-code-bin vivaldi solaar skypeforlinux-stable-bin
+ya darktable inkscape rapid-photo-downloader gimp 
+
+echo "Installing LaTeX"
+ya texlive-most texlive-langgreek texlive-latexindent-meta
 
 PKGS=(
 'autojump'
 'awesome-terminal-fonts'
-'brave-bin' # Brave Browser
-'dxvk-bin' # DXVK DirectX to Vulcan
-'github-desktop-bin' # Github Desktop sync
-'lightly-git'
-'lightlyshaders-git'
-'mangohud' # Gaming FPS Counter
-'mangohud-common'
+# 'lightly-git'
+# 'lightlyshaders-git'
+# 'mangohud' # Gaming FPS Counter
+# 'mangohud-common'
 'nerd-fonts-fira-code'
-'nordic-darker-standard-buttons-theme'
-'nordic-darker-theme'
-'nordic-kde-git'
-'nordic-theme'
-'noto-fonts-emoji'
-'papirus-icon-theme'
-'plasma-pa'
 'ocs-url' # install packages from websites
-'sddm-nordic-theme-git'
 'snapper-gui-git'
-'ttf-droid'
-'ttf-hack'
-'ttf-meslo' # Nerdfont package
-'ttf-roboto'
-'zoom' # video conferences
-'snap-pac'
+'konsave'
 )
 
 for PKG in "${PKGS[@]}"; do
-    yay -S --noconfirm $PKG
+    ya $PKG
 done
 
-export PATH=$PATH:~/.local/bin
-cp -r $HOME/ArchTitus/dotfiles/* $HOME/.config/
-pip install konsave
-konsave -i $HOME/ArchTitus/kde.knsv
-sleep 1
-konsave -a kde
-
-echo -e "\nDone!\n"
-exit
+echo "--------------------------------------------------------------------------"
+echo "- Finished "
+echo "--------------------------------------------------------------------------"

@@ -87,7 +87,7 @@ fi
 echo "--------------------------------------------------------------------------"
 echo "- Installing base system packages       "
 echo "--------------------------------------------------------------------------"
-alias pi=pacman -S --noconfirm --needed
+alias pi="pacman -S --noconfirm --needed"
 
 echo "Install mesa and xorg to power display"
 pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
@@ -116,7 +116,7 @@ echo "Install Python"
 pi python python2 python-pip python2-pip
 
 echo "Install a collection of useful tools"
-pi git openssh htop bmon nano os-prober openbsd-netcat inxi ufw lsof vim wget snapper rsync ntp pacman-contrib
+pi git openssh htop bmon nano os-prober openbsd-netcat inxi ufw lsof vim wget snapper rsync ntp pacman-contrib openvpn
 echo "Install Disk Utils"
 pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 
@@ -176,6 +176,19 @@ echo "--------------------------------------------------------------------------
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 grub-mkconfig -o /boot/grub/grub.cfg
 grub-install --target=x86_64-efi --bootloader-id=RoadwarriorArch ${DISK}
+
+echo "--------------------------------------------------------------------------"
+echo "- Enable Essential Services "
+echo "--------------------------------------------------------------------------"
+systemctl enable sddm.service
+systemctl enable cups.service
+systemctl enable cronie
+ntpd -qg
+systemctl enable ntpd.service
+# systemctl disable dhcpcd.service
+# systemctl stop dhcpcd.service
+systemctl enable NetworkManager
+systemctl enable bluetooth
 
 echo "--------------------------------------------------------------------------"
 echo "- Finished system installation"

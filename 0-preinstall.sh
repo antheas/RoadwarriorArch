@@ -17,8 +17,6 @@ fi
 # partprobe 2>/dev/null
 rm -r /mnt
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
 echo -e "  \\______   \\ _________    __| _/  \\    /  \\____ ______________|__| ___________   "
@@ -246,9 +244,8 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
 
 sed -i "s,quiet,quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET},g" /mnt/etc/default/grub
 
-# Add ubuntu keyserver, copy install script to new system
+# Add ubuntu keyserver
 echo "keyserver hkp://keyserver.ubuntu.com" >> /mnt/etc/pacman.d/gnupg/gpg.conf
-cp -R ${SCRIPT_DIR} /mnt/root/install-script
 
 echo "--------------------------------------------------------------------------"
 echo "--   SYSTEM READY FOR 1-setup"
