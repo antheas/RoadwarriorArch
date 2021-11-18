@@ -18,6 +18,7 @@ echo -e "          \\/           \\/     \\/       \\/       \\/                
 echo -e "----------------------------------------------------------------------------------"
 sleep 3
 
+echo ""
 echo "--------------------------------------------------------------------------"
 echo "- Network Setup   "
 echo "--------------------------------------------------------------------------"
@@ -72,12 +73,15 @@ pacman -Sy --noconfirm
 
 # Graphics Drivers find and install
 if lspci | grep -E "NVIDIA|GeForce"; then
-    pacman -S nvidia --noconfirm --needed
-    nvidia-xconfig
+  # FIXME: add optimus setup
+  pacman -S nvidia --noconfirm --needed
+  nvidia-xconfig
 elif lspci | grep -E "Radeon"; then
-    pacman -S xf86-video-amdgpu --noconfirm --needed
+  pacman -S xf86-video-amdgpu --noconfirm --needed
 elif lspci | grep -E "Integrated Graphics Controller"; then
-    pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
+  pacman -S --needed --noconfirm intel-media-driver libva-utils intel-gpu-tools
+# elif lspci | grep -E "Integrated Graphics Controller"; then
+#   pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
 fi
 
 echo "--------------------------------------------------------------------------"
@@ -101,7 +105,7 @@ pi zsh bash-completion
 # 'zsh-autosuggestions'
 
 echo "Install audio packages and manager"
-pi alsa-plugins alsa-utils                         
+pi alsa-plugins alsa-tools alsa-utils                         
 pi pulseaudio pulseaudio-alsa pulseaudio-Bluetooth
 echo "Install Bluetooth provider"
 pi bluez bluez-libs bluez-utils                    
@@ -112,9 +116,12 @@ echo "Install Python"
 pi python python2 python-pip python2-pip
 
 echo "Install a collection of useful tools"
-pi git openssh htop nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync ntp pacman-contrib
+pi git openssh htop bmon nano os-prober openbsd-netcat inxi ufw lsof vim wget snapper rsync ntp pacman-contrib
 echo "Install Disk Utils"
-pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils
+pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
+
+echo "Install Laptop energy management (TLP)"
+pi tlp tlp-drw tlpui
 
 # Gaming specific
 # pi lutris steam gamemode
@@ -144,19 +151,23 @@ for PKG in "${PKGS[@]}"; do
 done
 
 echo -e "\nDone!\n"
+
+echo "--------------------------------------------------------------------------"
+echo "- Creating user"
+echo "--------------------------------------------------------------------------"
 if ! source install.conf; then
-  read -p "Please enter username:" username
-  echo "username=$username" >> ${HOME}/ArchTitus/install.conf
+  read -p "Enter username: " username
+  read -p "Enter password: " password
+  read -p "Enter hostname: " hostname
+  echo "username=$username\npassword=$password\nhostname=$hostname" >> install.conf
 fi
+
 if [ $(whoami) = "root"  ]; then
-    useradd -m -G wheel,libvirt -s /bin/bash $username 
-    passwd $username
-    cp -R /root/ArchTitus /home/$username/
-    chown -R $username: /home/$username/ArchTitus
-    read -p "Please name your machine:" nameofmachine
-    echo $nameofmachine > /etc/hostname
-else
-    echo "You are already a user proceed with aur installs"
+  useradd -m -G wheel -s /bin/bash $username 
+  echo "$password" | passwd $username --stdin
+  cp -R /root/ArchTitus /home/$username/
+  chown -R $username: /home/$username/ArchTitus
+  echo $hostname > /etc/hostname
 fi
 
 echo "--------------------------------------------------------------------------"
@@ -165,3 +176,7 @@ echo "--------------------------------------------------------------------------
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 grub-mkconfig -o /boot/grub/grub.cfg
 grub-install --target=x86_64-efi --bootloader-id=RoadwarriorArch ${DISK}
+
+echo "--------------------------------------------------------------------------"
+echo "- Finished system installation"
+echo "--------------------------------------------------------------------------"
