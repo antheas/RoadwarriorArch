@@ -45,6 +45,7 @@ echo "Installing Apps"
 ya zotero xournalpp libreoffice-still
 ya visual-studio-code-bin vivaldi solaar skypeforlinux-stable-bin
 ya darktable inkscape rapid-photo-downloader gimp 
+ya tlpui
 
 echo "Installing LaTeX"
 ya texlive-most texlive-langgreek texlive-latexindent-meta

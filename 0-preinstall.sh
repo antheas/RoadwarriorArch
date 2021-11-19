@@ -15,7 +15,10 @@ if [ -b /dev/mapper/cryptroot ]; then
     cryptsetup close cryptroot
 fi
 # partprobe 2>/dev/null
-rm -r /mnt
+rm -r -f /mnt
+
+# Exit on error
+set -e
 
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
@@ -185,6 +188,13 @@ if ! grep -qs '/mnt' /proc/mounts; then
   echo "Drive is not mounted, can not continue"
   exit 1
 fi
+
+openssl genrsa -out /mnt/crypto_keyfile.bin 4096
+chmod 600 /mnt/crypto_keyfile.bin
+echo -n "$password" | cryptsetup luksAddKey "${DISKP}3" /mnt/crypto_keyfile.bin -d -
+echo "Created /crypto_keyfile.bin as an alternative unlock key."
+echo "Save it after install in case you forget your keyword."
+read -p "Press any key to continue..."
 
 # Create btrfs swap file, substitute count for GB of ram if you want hibernate
 # Use dd for allocation, not fallocate (due to holes, needs to be continuous)

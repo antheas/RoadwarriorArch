@@ -1,8 +1,9 @@
 #!/bin/bash
-bash 0-preinstall.sh
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+set -e
+bash ${SCRIPT_DIR}/0-preinstall.sh
 
 # Copy repo to root
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 rm -R -f /mnt/root/install-script
 cp -R ${SCRIPT_DIR} /mnt/root/install-script
 

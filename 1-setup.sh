@@ -9,6 +9,9 @@
 #----------------------------------------------------------------------------------
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
+# Exit on error
+set -e
+
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
 echo -e "  \\______   \\ _________    __| _/  \\    /  \\____ ______________|__| ___________   "
@@ -35,14 +38,8 @@ do
   fi
 done
 
-echo ""
-echo "--------------------------------------------------------------------------"
-echo "- Network Setup   "
-echo "--------------------------------------------------------------------------"
-pacman -Syu networkmanager dhclient --noconfirm --needed
-systemctl enable --now NetworkManager
-
 iso=$(curl -4 ifconfig.co/country-iso)
+echo ""
 echo "--------------------------------------------------------------------------"
 echo "- Setting $iso up mirrors for optimal download         "
 echo "--------------------------------------------------------------------------"
@@ -96,7 +93,7 @@ echo "Configuring /etc/mkinitcpio.conf."
 # mkinitpio hooks with sd-encrypt:
 # systemd supports LUKS2 unlock by password, with timeouts and preview, and by TPM
 # https://wiki.archlinux.org/title/mkinitcpio#HOOKS
-sed -i "s,^HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems fsck)\n#HOOKS,g" /etc/mkinitcpio.conf
+sed -i "s,^HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt filesystems)\n#HOOKS,g" /etc/mkinitcpio.conf
 # Change initramfs compression from gzip (default) to zstd
 sed -i "s,^#COMPRESSION=[\(\"]zstd[\)\"],COMPRESSION=\"zstd\",g" /etc/mkinitcpio.conf
 # Create vconsole fle
@@ -115,26 +112,29 @@ echo "--------------------------------------------------------------------------
 # Setting up LUKS2 encryption in grub.
 echo "Setting up grub config."
 LUKS_UUID=$(blkid -s UUID -o value ${CRYPT_PART})
+echo "LUKS partition (${CRYPT_PART}) UUID: ${LUKS_UUID}"
 
 # BTRFS hibernate, it has to be in btrfs because we want to use an encrypted swap
 # That's also variable in case you upgrade your ram or want to remove it in the future.
 # https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate#Hibernation_into_swap_file_on_Btrfs
 SWAP_UUID=$(findmnt -no UUID -T /swap/swapfile)
 gcc -O2 -o ${SCRIPT_DIR}/btrfs_map_physical ${SCRIPT_DIR}/physical.c
-SWAP_OFFSET=$(${SCRIPT_DIR}/btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
-echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_OFFSET"
+SWAP_FILE_OFFSET=$(${SCRIPT_DIR}/btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
+PAGE_SIZE=$(getconf PAGESIZE)
+SWAP_OFFSET=$(expr $SWAP_FILE_OFFSET / $PAGE_SIZE)
+echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $SWAP_OFFSET"
 # Why hibernate? Because if you leave your laptop on standby it will run until
 # it runs out of battery and you'll lose your session.
 # With hibernate the laptop will automatically turn off after a set amount of hours.
 # Bonus: the luks partition will be locked, preventing cold boot attacks.
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 if [[ -d "/sys/firmware/efi" ]]; then
   grub-install --target=x86_64-efi --efi-directory=/boot/ --bootloader-id=RoadwarriorArch
 else
-  grub-install --bootloader-id=RoadwarriorArch ${DISK}
+  grub-install --target=i386-pc --bootloader-id=RoadwarriorArch ${DISK}
 fi
 grub-mkconfig -o /boot/grub/grub.cfg
 
@@ -150,7 +150,7 @@ if ! source ${SCRIPT_DIR}/install.conf; then
 fi
 
 if [ $(whoami) = "root"  ]; then
-  useradd -m -G wheel -s /bin/bash $username 
+  useradd -m -G wheel -s /bin/bash $username || /bin/true
   echo "$username:$password" | chpasswd
   echo $hostname > /etc/hostname
 fi
@@ -159,7 +159,7 @@ echo "--------------------------------------------------------------------------
 echo "- Installing base system packages       "
 echo "--------------------------------------------------------------------------"
 pi () {
-  pacman -S --noconfirm --needed $@
+  pacman -S --noconfirm --needed $@ || exit 1
 }
 
 # Graphics Drivers find and install
@@ -175,39 +175,41 @@ elif lspci | grep -E "Integrated Graphics Controller"; then
 #   pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
 fi
 
-echo "Install mesa and xorg to power display"
+echo "#### Install mesa and xorg to power display"
 pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
-echo "Install plasma group + kde, desktop environment, sddm login"
+echo "#### Install plasma group + kde, desktop environment, sddm login"
 pi plasma kde-utilities kde-system zeroconf-ioslave sddm
-echo "Install a subsection of kde-applications, which is too large"
+echo "#### Install a subsection of kde-applications, which is too large"
 pi gwenview okular spectacle
+echo "#### Install networking"
+pi networkmanager
 
-echo "Install Compression Utils"
+echo "#### Install Compression Utils"
 pi ark zip unzip unrar p7zip lzop 
-echo "Install Terminal Utils (use zsh!)"
+echo "#### Install Terminal Utils (use zsh!)"
 pi zsh bash-completion
 # Available with oh-my-zsh, install from there
 # 'zsh-syntax-highlighting' 
 # 'zsh-autosuggestions'
 
-echo "Install audio packages and manager"
+echo "#### Install audio packages and manager"
 pi alsa-plugins alsa-tools alsa-utils                         
-pi pulseaudio pulseaudio-alsa pulseaudio-Bluetooth
-echo "Install Bluetooth provider"
+pi pulseaudio pulseaudio-alsa pulseaudio-bluetooth
+echo "#### Install Bluetooth provider"
 pi bluez bluez-libs bluez-utils                    
 
-echo "Install Fuse mounts, mount GDrive, OneDrive etc with rclone"
+echo "#### Install Fuse mounts, mount GDrive, OneDrive etc with rclone"
 pi rclone fuse2 fuse3
-echo "Install Python"
+echo "#### Install Python"
 pi python python2 python-pip python2-pip
 
-echo "Install a collection of useful tools"
-pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync ntp pacman-contrib openvpn
-echo "Install Disk Utils"
+echo "#### Install a collection of useful tools"
+pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync pacman-contrib openvpn
+echo "#### Install Disk Utils"
 pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 
-echo "Install Laptop energy management (TLP)"
-pi tlp tlp-drw tlpui
+echo "#### Install Laptop energy management (TLP)"
+pi tlp tlp-rdw
 
 # Gaming specific
 # pi lutris steam gamemode
@@ -215,11 +217,13 @@ pi tlp tlp-drw tlpui
 # pi wine wine-gecko wine-mono winetrics
 # Virtual machines, alternative to Virtualbox
 # pi qemu virt-manager virt-viewer 
+# Time Synchronisation
+# pi ntp
 
-echo "Install Fun packages"
+echo "#### Install Fun packages"
 pi neofetch cmatrix kitty
 
-echo "Install Misc Packages"
+echo "#### Install Misc Packages"
 PKGS=(
   'cronie'          # Crontab
   'cups'            # Printer management
@@ -241,13 +245,12 @@ echo -e "\nDone!\n"
 echo "--------------------------------------------------------------------------"
 echo "- Enable Essential Services "
 echo "--------------------------------------------------------------------------"
-systemctl enable sddm.service
-systemctl enable cups.service
+systemctl enable sddm
+systemctl enable cups
 systemctl enable cronie
-ntpd -qg
-systemctl enable ntpd.service
-# systemctl disable dhcpcd.service
-# systemctl stop dhcpcd.service
+# ntpd -qg
+# systemctl enable ntpd
+# systemctl enable systemd-timesyncd
 systemctl enable NetworkManager
 systemctl enable bluetooth
 
