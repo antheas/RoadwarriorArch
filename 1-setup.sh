@@ -214,12 +214,15 @@ echo "#### Install Python"
 pi python python2 python-pip python2-pip
 
 echo "#### Install a collection of useful tools"
-pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget snapper snap-pac rsync pacman-contrib openvpn
+pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget rsync pacman-contrib openvpn
 echo "#### Install Disk Utils"
 pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 
 echo "#### Install Laptop energy management (TLP)"
 pi tlp tlp-rdw
+
+echo "#### Installing Snapper "
+pi snapper snap-pac grub-btrfs
 
 # Gaming specific
 # pi lutris steam gamemode
@@ -262,6 +265,46 @@ systemctl enable systemd-timesyncd
 systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable apparmor
+systemctl enable grub-btrfs.path # adds snapshots to grub
+
+echo "--------------------------------------------------------------------------"
+echo "- Configure snapper "
+echo "--------------------------------------------------------------------------"
+
+# https://wiki.archlinux.org/title/snapper
+if [ ! -f "/etc/snapper/configs/root" ]; then
+  snapper -c root create-config /
+  # Bi-daily snapshots for system
+  cat >> /etc/snapper/configs/root <<-EOL
+TIMELINE_MIN_AGE="21600"
+TIMELINE_LIMIT_HOURLY="2"
+TIMELINE_LIMIT_DAILY="5"
+TIMELINE_LIMIT_WEEKLY="4"
+TIMELINE_LIMIT_MONTHLY="2"
+TIMELINE_LIMIT_YEARLY="0"
+EOL
+fi
+
+if [ ! -f "/etc/snapper/configs/home" ]; then
+  snapper -c home create-config /home
+  # Bihourly snapshots for home dir
+  # Tempting to create weekly/yearly snapshots, but that means you can't delete
+  # files to save space anymore...
+  cat >> /etc/snapper/configs/home <<-EOL
+TIMELINE_MIN_AGE="1800"
+TIMELINE_LIMIT_HOURLY="10"
+TIMELINE_LIMIT_DAILY="7"
+TIMELINE_LIMIT_WEEKLY="0"
+TIMELINE_LIMIT_MONTHLY="0"
+TIMELINE_LIMIT_YEARLY="0"
+EOL
+fi
+
+# Allow access by sudoers to snapshots
+chmod a+rx /.snapshots
+chown :wheel /.snapshots
+chmod a+rx /home/.snapshots
+chown :wheel /home/.snapshots
 
 echo "--------------------------------------------------------------------------"
 echo "- Finished system installation"
