@@ -23,15 +23,20 @@ echo "--------------------------------------------------------------------------
 echo "- Installing AUR & Software  "
 echo "--------------------------------------------------------------------------"
 
-echo "Installing YAY"
-cd ~
-rm -f -r yay
-mkdir -p yay && cd yay
-git clone "https://aur.archlinux.org/yay.git" .
-makepkg -si --noconfirm
-cd ..
-rm -f -r yay
-yay -Syu
+if [ -z "$(pacman -Q yay 2> /dev/null)" ]; then
+  echo "Installing YAY"
+  cd ~
+  rm -f -r yay
+  mkdir -p yay && cd yay
+  git clone "https://aur.archlinux.org/yay.git" .
+  makepkg -si --noconfirm
+  cd ..
+  rm -f -r yay
+  yay -Syu
+else
+  echo "YAY is currently installed"
+fi
+
 ya () {
   yay -S --noconfirm $@
 }
