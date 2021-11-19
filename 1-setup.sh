@@ -132,7 +132,7 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 
 # Timeout doesn't work, systemd enters emergency shell and user can retry
 # So, timeouts and limited retries are disabled for now
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,retries=0,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,retries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 
 # Hide grub menu, remember last kernel
 echo "GRUB menu will be hidden, hold shift to access during boot"
@@ -174,15 +174,21 @@ pi () {
 
 # Graphics Drivers find and install
 if lspci | grep -E "NVIDIA|GeForce"; then
-  # FIXME: add optimus setup
+  # FIXME: add optimus setup, test
   pi nvidia
   nvidia-xconfig
 elif lspci | grep -E "Radeon"; then
- pi xf86-video-amdgpu
-elif lspci | grep -E "Integrated Graphics Controller"; then
+  # FIXME: test
+  pi xf86-video-amdgpu
+elif lspci | grep -E "VGA compatible controller: Intel"; then
+  # The followind packages are required for chromium hw acceleration
+  # Intel drivers are provided by the mesa package and kernel
+  # Don't install xf86-video-intel!
+  # https://wiki.archlinux.org/title/intel_graphics#Installation
+  # https://wiki.archlinux.org/title/Hardware_video_acceleration
   pi intel-media-driver libva-utils intel-gpu-tools
-# elif lspci | grep -E "Integrated Graphics Controller"; then
-#   pacman -S libva-intel-driver libvdpau-va-gl lib32-vulkan-intel vulkan-intel libva-intel-driver libva-utils --needed --noconfirm
+
+  # TODO: older intel gpus
 fi
 
 echo "#### Install mesa and xorg to power display"
@@ -279,6 +285,7 @@ echo "--------------------------------------------------------------------------
 # - create a volume for .snapshots (in @; we want outside which is why we do this)
 # - create the following config file
 # - add an entry to /etc/conf.d/snapper
+# Why: if we create @snapshots and map it to /.snapshots, the command doesn't work
 
 # Bi-daily snapshots for system
 cp ${SCRIPT_DIR}/snapper_sample.conf /etc/snapper/configs/root
@@ -307,7 +314,7 @@ TIMELINE_LIMIT_YEARLY="0"
 EOL
 
 # Add entries to central config
-echo -e "\nSNAPPER_CONFIGS=\"root home\"" >> /etc/conf.d/snapper
+sed -i 's/^SNAPPER/SNAPPER_CONFIGS=\"root home\"\n#SNAPPER/' /etc/conf.d/snapper
 
 # Allow access by sudoers to snapshots
 chmod a+rx /.snapshots
