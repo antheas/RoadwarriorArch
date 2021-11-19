@@ -138,12 +138,14 @@ mount /dev/mapper/cryptroot /mnt
 # @cache     /var/cache
 # @log       /var/log
 # @swap      /swap
-# @snapshots /.snapshots (created by snapper)
+# @snapshots /.snapshots
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@cache
 btrfs subvolume create /mnt/@log
 btrfs subvolume create /mnt/@swap
+btrfs subvolume create /mnt/@snapshots
+btrfs subvolume create /mnt/@homesnaps
 
 umount /mnt
 
@@ -159,6 +161,7 @@ mkdir -p /mnt/var/cache
 mkdir -p /mnt/var/log
 mkdir -p /mnt/swap
 mkdir -p /mnt/boot
+mkdir -p /mnt/.snapshots
 
 # Why mount EFI partition on boot instead of /boot/efi:
 # In /boot/efi the kernel is encrypted, which limits evil maid attacks, doesn't leak
@@ -176,6 +179,10 @@ mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/ma
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
 mount -o defaults,noatime,subvol=@swap                                   /dev/mapper/cryptroot /mnt/swap
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+
+mkdir -p /mnt/home/.snapshots
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@homesnaps /dev/mapper/cryptroot /mnt/home/.snapshots
 
 if ! grep -qs '/mnt' /proc/mounts; then
   echo "Drive is not mounted, can not continue"

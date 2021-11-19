@@ -272,10 +272,18 @@ echo "- Configure snapper "
 echo "--------------------------------------------------------------------------"
 
 # https://wiki.archlinux.org/title/snapper
-if [ ! -f "/etc/snapper/configs/root" ]; then
-  snapper -c root create-config /
-  # Bi-daily snapshots for system
-  cat >> /etc/snapper/configs/root <<-EOL
+
+# Emulate the following command
+# snapper -c root create-config /
+# It does 3 things:
+# - create a volume for .snapshots (in @; we want outside which is why we do this)
+# - create the following config file
+# - add an entry to /etc/conf.d/snapper
+
+# Bi-daily snapshots for system
+cp ${SCRIPT_DIR}/snapper_sample.conf /etc/snapper/configs/root
+cat >> /etc/snapper/configs/root <<-EOL
+SUBVOLUME="/"
 TIMELINE_MIN_AGE="21600"
 TIMELINE_LIMIT_HOURLY="2"
 TIMELINE_LIMIT_DAILY="5"
@@ -283,14 +291,13 @@ TIMELINE_LIMIT_WEEKLY="4"
 TIMELINE_LIMIT_MONTHLY="2"
 TIMELINE_LIMIT_YEARLY="0"
 EOL
-fi
 
-if [ ! -f "/etc/snapper/configs/home" ]; then
-  snapper -c home create-config /home
-  # Bihourly snapshots for home dir
-  # Tempting to create weekly/yearly snapshots, but that means you can't delete
-  # files to save space anymore...
-  cat >> /etc/snapper/configs/home <<-EOL
+# Bihourly snapshots for home dir
+# Tempting to create weekly/yearly snapshots, but that means you can't delete
+# files to save space anymore...
+cp ${SCRIPT_DIR}/snapper_sample.conf /etc/snapper/configs/home
+cat >> /etc/snapper/configs/home <<-EOL
+SUBVOLUME="/home"
 TIMELINE_MIN_AGE="1800"
 TIMELINE_LIMIT_HOURLY="10"
 TIMELINE_LIMIT_DAILY="7"
@@ -298,7 +305,9 @@ TIMELINE_LIMIT_WEEKLY="0"
 TIMELINE_LIMIT_MONTHLY="0"
 TIMELINE_LIMIT_YEARLY="0"
 EOL
-fi
+
+# Add entries to central config
+echo -e "\nSNAPPER_CONFIGS=\"root home\"" >> /etc/conf.d/snapper
 
 # Allow access by sudoers to snapshots
 chmod a+rx /.snapshots

@@ -51,6 +51,8 @@ mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/ma
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
 mount -o defaults,noatime,subvol=@swap                                   /dev/mapper/cryptroot /mnt/swap
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@homesnaps /dev/mapper/cryptroot /mnt/home/.snapshots
 
 echo "--------------------------------------------------------------------------"
 echo "- Disc remounted  "
