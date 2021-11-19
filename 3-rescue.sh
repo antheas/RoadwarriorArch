@@ -6,6 +6,8 @@ echo -e "   |    |   (  <_> ) __ \\/ /_/ | \\        / / __ \\|  | \\/|  | \\/  
 echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\\____/|__|     "
 echo -e "          \\/           \\/     \\/       \\/       \\/                                "
 echo -e "----------------------------------------------------------------------------------"
+echo -e "- Remounts encrypted Arch drive"
+echo -e "----------------------------------------------------------------------------------"
 sleep 1
 
 echo "Please select the disk you installed Arch on:"
@@ -18,7 +20,7 @@ do
     else
       DISKP=${DISK}
     fi
-    echo "Remounting partition ${DISKP}3"
+    echo "Remounting LUKS partition ${DISKP}3, with /boot ${DISKP}2"
     break
   fi
 done
@@ -43,8 +45,8 @@ echo "--------------------------------------------------------------------------
 echo "- Remounting disc  "
 echo "--------------------------------------------------------------------------"
 
-mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@ /dev/mapper/cryptroot /mnt
-mount -t vfat "${DISKP}2" /mnt/boot
+mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@          /dev/mapper/cryptroot /mnt
+mount -t vfat                                                            "${DISKP}2"           /mnt/boot
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/mapper/cryptroot /mnt/home
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
