@@ -221,7 +221,7 @@ pi tlp tlp-rdw
 # pi ntp
 
 echo "#### Install Fun packages"
-pi neofetch cmatrix kitty
+pi neofetch cmatrix
 
 echo "#### Install Misc Packages"
 PKGS=(

@@ -36,28 +36,28 @@ ya () {
   yay -S --noconfirm $@
 }
 
-echo "Installing Fonts"
-ya nerd-fonts-fira-code
+echo "#### Installing Fonts"
+ya nerd-fonts-fira-code awesome-terminal-fonts
 ya adobe-source-han-sans-cn-fonts adobe-source-han-sans-jp-fonts adobe-source-han-sans-kr-fonts adobe-source-sans-fonts
 ya ttf-inconsolata ttf-indic-otf ttf-roboto ttf-windows
 
-echo "Installing Apps"
+echo "#### Installing AUR utils"
+ya tlpui inxi
+
+echo "#### Installing Apps"
 ya zotero xournalpp libreoffice-still
 ya visual-studio-code-bin vivaldi solaar skypeforlinux-stable-bin
 ya darktable inkscape rapid-photo-downloader gimp 
-ya tlpui
 
-echo "Installing LaTeX"
+echo "#### Installing LaTeX"
 ya texlive-most texlive-langgreek texlive-latexindent-meta
 
 PKGS=(
 'autojump'
-'awesome-terminal-fonts'
 # 'lightly-git'
 # 'lightlyshaders-git'
 # 'mangohud' # Gaming FPS Counter
 # 'mangohud-common'
-'nerd-fonts-fira-code'
 'ocs-url' # install packages from websites
 'snapper-gui-git'
 'konsave'
