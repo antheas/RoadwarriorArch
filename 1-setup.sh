@@ -128,7 +128,7 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 # With hibernate the laptop will automatically turn off after a set amount of hours.
 # Bonus: the luks partition will be locked, preventing cold boot attacks.
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=tpm2-device=auto,discard,timeout=180 root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 if [[ -d "/sys/firmware/efi" ]]; then
@@ -248,11 +248,10 @@ echo "--------------------------------------------------------------------------
 systemctl enable sddm
 systemctl enable cups
 systemctl enable cronie
-# ntpd -qg
-# systemctl enable ntpd
-# systemctl enable systemd-timesyncd
+systemctl enable systemd-timesyncd
 systemctl enable NetworkManager
 systemctl enable bluetooth
+systemctl enable apparmor
 
 echo "--------------------------------------------------------------------------"
 echo "- Finished system installation"
