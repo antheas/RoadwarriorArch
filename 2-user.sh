@@ -42,7 +42,7 @@ ya adobe-source-han-sans-cn-fonts adobe-source-han-sans-jp-fonts adobe-source-ha
 ya ttf-inconsolata ttf-indic-otf ttf-roboto ttf-windows
 
 echo "#### Installing AUR utils"
-ya tlpui inxi
+ya tlpui inxi snapper-gui-git
 
 echo "#### Installing Apps"
 ya zotero xournalpp libreoffice-still

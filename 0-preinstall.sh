@@ -119,11 +119,6 @@ do true; done
 # https://wiki.archlinux.org/title/dm-crypt/Device_encryption#Encryption_options_for_LUKS_mode
 echo -n "$password" | cryptsetup luksFormat "${DISKP}3" -d -
 
-# We expect to see only the 0 key slot occupied by a key
-echo -e "\nDumping encrypted partition information..."
-cryptsetup luksDump "${DISKP}3"
-read -p "Verify the luks header is correct and any key to continue..."
-
 # Formating internal partition to btrfs
 echo -e "\nOpening partition..."
 echo -n "$password" | cryptsetup open "${DISKP}3" cryptroot -d -
@@ -143,13 +138,12 @@ mount /dev/mapper/cryptroot /mnt
 # @cache     /var/cache
 # @log       /var/log
 # @swap      /swap
-# @snapshots /.snapshots
+# @snapshots /.snapshots (created by snapper)
 btrfs subvolume create /mnt/@
 btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@cache
 btrfs subvolume create /mnt/@log
 btrfs subvolume create /mnt/@swap
-btrfs subvolume create /mnt/@snapshots
 
 umount /mnt
 
@@ -164,7 +158,6 @@ mkdir -p /mnt/home
 mkdir -p /mnt/var/cache
 mkdir -p /mnt/var/log
 mkdir -p /mnt/swap
-mkdir -p /mnt/.snapshots
 mkdir -p /mnt/boot
 
 # Why mount EFI partition on boot instead of /boot/efi:
@@ -182,7 +175,6 @@ mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/ma
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
 mount -o defaults,noatime,subvol=@swap                                   /dev/mapper/cryptroot /mnt/swap
-mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@snapshots /dev/mapper/cryptroot /mnt/.snapshots
 
 if ! grep -qs '/mnt' /proc/mounts; then
   echo "Drive is not mounted, can not continue"
@@ -195,6 +187,12 @@ echo -n "$password" | cryptsetup luksAddKey "${DISKP}3" /mnt/crypto_keyfile.bin 
 echo "Created /crypto_keyfile.bin as an alternative unlock key."
 echo "Save it after install in case you forget your keyword."
 read -p "Press any key to continue..."
+
+# We expect to see only the 0 key slot occupied by a key
+echo -e "\nDumping encrypted partition information..."
+cryptsetup luksDump "${DISKP}3"
+echo "Expected: 0 keyslot passphrase and 1 keyslot file"
+read -p "Verify the luks header is correct and any key to continue..."
 
 # Create btrfs swap file, substitute count for GB of ram if you want hibernate
 # Use dd for allocation, not fallocate (due to holes, needs to be continuous)

@@ -69,7 +69,7 @@ echo "--------------------------------------------------------------------------
 echo "- Setup Language, locale, and timezone       "
 echo "--------------------------------------------------------------------------"
 source ${SCRIPT_DIR}/install.conf || /bin/true
-echo "\nInstalled by Roadwarrior\n${locale_gen:-en_US.UTF-8 UTF-8}" >> /etc/locale.gen
+echo -e "\n#Installed by Roadwarrior\n${locale_gen:-en_US.UTF-8 UTF-8}" >> /etc/locale.gen
 locale-gen
 localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
 localectl --no-ask-password set-keymap ${keymap:-us}
@@ -130,7 +130,7 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 # With hibernate the laptop will automatically turn off after a set amount of hours.
 # Bonus: the luks partition will be locked, preventing cold boot attacks.
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=tpm2-device=auto,discard,timeout=180 root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=tpm2-device=auto\,discard\,timeout=180 root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 if [[ -d "/sys/firmware/efi" ]]; then
@@ -205,7 +205,7 @@ echo "#### Install Python"
 pi python python2 python-pip python2-pip
 
 echo "#### Install a collection of useful tools"
-pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget snapper rsync pacman-contrib openvpn
+pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget snapper snap-pac rsync pacman-contrib openvpn
 echo "#### Install Disk Utils"
 pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 
