@@ -19,6 +19,9 @@ arch-chroot /mnt chown -R $username /home/$username/install-script
 echo "System is now bootable"
 echo "Next step: running 2-software.sh and 3-dotfiles.sh"
 echo "They can also be run after booting, from the dir ~/install-script"
+echo "If installation was successful consider:"
+echo " - snapper -c root create --description \"Fresh Install\""
+echo " - snapper -c home create --description \"Fresh Install\""
 read -p "Install now? (y/N):" installNow
 case $installNow in
   y|Y|yes|Yes|YES)

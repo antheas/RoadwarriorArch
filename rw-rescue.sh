@@ -1,3 +1,4 @@
+#!/bin/bash
 echo -e "----------------------------------------------------------------------------------"
 echo -e "  __________                 ._____      __                    .__                "
 echo -e "  \\______   \\ _________    __| _/  \\    /  \\____ ______________|__| ___________   "
@@ -44,6 +45,9 @@ echo ""
 echo "--------------------------------------------------------------------------"
 echo "- Remounting disc  "
 echo "--------------------------------------------------------------------------"
+
+mountpoint -q "/mnt" && umount -R "/mnt"
+mkdir -p /mnt
 
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@          /dev/mapper/cryptroot /mnt
 mount -t vfat                                                            "${DISKP}2"           /mnt/boot
