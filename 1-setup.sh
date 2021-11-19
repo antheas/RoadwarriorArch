@@ -66,19 +66,21 @@ if [[  $TOTALMEM -gt 8000000 ]]; then
 fi
 
 echo "--------------------------------------------------------------------------"
-echo "- Setup Language to US and set locale       "
+echo "- Setup Language, locale, and timezone       "
 echo "--------------------------------------------------------------------------"
-source ${SCRIPT_DIR}/install.conf
-sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+source ${SCRIPT_DIR}/install.conf || /bin/true
+echo "\nInstalled by Roadwarrior\n${locale_gen:-en_US.UTF-8 UTF-8}" >> /etc/locale.gen
 locale-gen
-timedatectl --no-ask-password set-timezone America/Chicago
+localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
+localectl --no-ask-password set-keymap ${keymap:-us}
+
+timedatectl --no-ask-password set-timezone ${timezone:-America/Chicago}
 timedatectl --no-ask-password set-ntp 1
-localectl --no-ask-password set-locale LANG="en_US.UTF-8" LC_TIME="en_US.UTF-8"
 
 # Set keymaps
-localectl --no-ask-password set-keymap us
 
 # Add sudo no password rights
+echo "Sudoers: wheel group will require no password to run sudo, edit /etc/sudoers"
 sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/' /etc/sudoers
 
 # Enable multilib
@@ -97,7 +99,7 @@ sed -i "s,^HOOKS,HOOKS=(base systemd autodetect keyboard sd-vconsole modconf blo
 # Change initramfs compression from gzip (default) to zstd
 sed -i "s,^#COMPRESSION=[\(\"]zstd[\)\"],COMPRESSION=\"zstd\",g" /etc/mkinitcpio.conf
 # Create vconsole fle
-echo "KEYMAP=us" > /etc/vconsole.conf
+echo "KEYMAP=${keymap:-us}" > /etc/vconsole.conf
 
 # Ignore:
 # ==> WARNING: Possibly missing firmware for module: aic94xx
@@ -141,7 +143,6 @@ grub-mkconfig -o /boot/grub/grub.cfg
 echo "--------------------------------------------------------------------------"
 echo "- Creating user"
 echo "--------------------------------------------------------------------------"
-echo "${SCRIPT_DIR}/install.conf"
 if ! source ${SCRIPT_DIR}/install.conf; then
   read -p "Enter username: " username
   read -p "Enter password: " password
