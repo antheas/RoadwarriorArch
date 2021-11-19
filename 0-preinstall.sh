@@ -169,6 +169,7 @@ mkdir -p /mnt/boot
 # takes 20 seconds to unlock. Also, no retries. You make a mistake and you'll
 # drop into a grub rescue shell. Then you either have to reboot the laptop or 
 # remember a series of commands.
+# systemd hook doesn't have a proper timeout either...
 # https://wiki.archlinux.org/title/GRUB#Encrypted_/boot
 mount -t vfat "${DISKP}2" /mnt/boot
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/mapper/cryptroot /mnt/home

@@ -130,7 +130,16 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 # With hibernate the laptop will automatically turn off after a set amount of hours.
 # Bonus: the luks partition will be locked, preventing cold boot attacks.
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=tpm2-device=auto\,discard\,timeout=180 root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+# Timeout doesn't work, systemd enters emergency shell and user can retry
+# So, timeouts and limited retries are disabled for now
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,retries=0,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+
+# Hide grub menu, remember last kernel
+echo "GRUB menu will be hidden, hold shift to access during boot"
+sed -i "s,^GRUB_TIMEOUT_STYLE=menu,GRUB_TIMEOUT_STYLE=hidden,g" /etc/default/grub
+sed -i "s,^GRUB_TIMEOUT=5,GRUB_TIMEOUT=3,g"                     /etc/default/grub
+sed -i "s,^GRUB_DEFAULT=0,GRUB_DEFAULT=saved,g"                 /etc/default/grub
+sed -i "s,^#GRUB_SAVEDEFAULT,GRUB_SAVEDEFAULT,g"                /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 if [[ -d "/sys/firmware/efi" ]]; then
