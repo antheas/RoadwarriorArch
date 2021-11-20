@@ -132,7 +132,9 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 
 # Timeout doesn't work, systemd enters emergency shell and user can retry
 # So, timeouts and limited retries are disabled for now
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,retries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+# Add tpm module
+sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"part_gpt part_msdos tpm\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
 
 # Hide grub menu, remember last kernel
 echo "GRUB menu will be hidden, hold shift to access during boot"
@@ -198,7 +200,7 @@ pi plasma kde-utilities kde-system zeroconf-ioslave sddm
 echo "#### Install a subsection of kde-applications, which is too large"
 pi gwenview okular spectacle
 echo "#### Install networking"
-pi networkmanager
+pi networkmanager net-tools inetutils
 
 echo "#### Install Compression Utils"
 pi ark zip unzip unrar p7zip lzop 
@@ -224,8 +226,8 @@ pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget rsync p
 echo "#### Install Disk Utils"
 pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 
-echo "#### Install Laptop energy management (TLP)"
-pi tlp tlp-rdw
+echo "#### Install Laptop energy management (TLP) and TPM support"
+pi tlp tlp-rdw tpm2-tools
 
 echo "#### Installing Snapper "
 pi snapper snap-pac grub-btrfs
@@ -240,7 +242,7 @@ pi snapper snap-pac grub-btrfs
 # pi ntp
 
 echo "#### Install Fun packages"
-pi neofetch cmatrix
+pi neofetch cmatrix archlinux-wallpaper 
 
 echo "#### Install Misc Packages"
 PKGS=(

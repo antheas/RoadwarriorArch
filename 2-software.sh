@@ -17,6 +17,7 @@ echo -e "   |____|_  /\\____(____  |____ |  \\__/\\  / (____  /__|   |__|  |__|\
 echo -e "          \\/           \\/     \\/       \\/       \\/                                "
 echo -e "----------------------------------------------------------------------------------"
 sleep 2
+set -e
 
 echo ""
 echo "--------------------------------------------------------------------------"
@@ -58,7 +59,7 @@ echo "#### Installing LaTeX"
 ya texlive-most texlive-langgreek texlive-latexindent-meta
 
 PKGS=(
-'autojump'
+# 'autojump'
 # 'lightly-git'
 # 'lightlyshaders-git'
 # 'mangohud' # Gaming FPS Counter
