@@ -59,7 +59,8 @@ ya tlpui inxi snapper-gui-git
 echo "#### Installing Apps"
 ya zotero xournalpp libreoffice-still
 ya vivaldi vivaldi-ffmpeg-codecs
-ya visual-studio-code-bin solaar skypeforlinux-stable-bin keepassxc
+# vs code requires gnome-keyring
+ya visual-studio-code-bin solaar skypeforlinux-stable-bin keepassxc gnome-keyring
 ya darktable inkscape rapid-photo-downloader gimp 
 
 echo "#### Installing LaTeX"
