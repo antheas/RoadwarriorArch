@@ -10,6 +10,7 @@ echo -e "-----------------------------------------------------------------------
 echo -e "- Remounts encrypted Arch drive"
 echo -e "----------------------------------------------------------------------------------"
 sleep 1
+set -e
 
 echo "Please select the disk you installed Arch on:"
 select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");

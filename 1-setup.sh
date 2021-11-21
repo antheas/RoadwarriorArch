@@ -229,8 +229,8 @@ pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
 echo "#### Install Laptop energy management (TLP) and TPM support"
 pi tlp tlp-rdw tpm2-tools
 
-echo "#### Installing Snapper "
-pi snapper snap-pac grub-btrfs
+echo "#### Install Snapper "
+pi snapper grub-btrfs # snap-pac <- enable only after installing software
 
 # Gaming specific
 # pi lutris steam gamemode

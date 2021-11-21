@@ -24,6 +24,12 @@ echo "--------------------------------------------------------------------------
 echo "- Installing AUR & Software  "
 echo "--------------------------------------------------------------------------"
 
+# Only create starting and ending snapshots
+# chroot doesn't have dbus
+# no-dbus doesn't allow arguments
+sudo snapper --no-dbus -c root create #--description \"Fresh Install\"
+sudo snapper --no-dbus -c home create #--description \"Fresh Install\"
+
 if [ -z "$(pacman -Q yay 2> /dev/null)" ]; then
   echo "Installing YAY"
   cd ~
@@ -52,7 +58,8 @@ ya tlpui inxi snapper-gui-git
 
 echo "#### Installing Apps"
 ya zotero xournalpp libreoffice-still
-ya visual-studio-code-bin vivaldi solaar skypeforlinux-stable-bin
+ya vivaldi vivaldi-ffmpeg-codecs
+ya visual-studio-code-bin solaar skypeforlinux-stable-bin keepassxc
 ya darktable inkscape rapid-photo-downloader gimp 
 
 echo "#### Installing LaTeX"
@@ -72,6 +79,11 @@ PKGS=(
 for PKG in "${PKGS[@]}"; do
     ya $PKG
 done
+
+# ya snap-pac
+
+sudo snapper --no-dbus -c root create #--description \"Post Software\"
+sudo snapper --no-dbus -c home create #--description \"Post Software\"
 
 echo "--------------------------------------------------------------------------"
 echo "- Finished "
