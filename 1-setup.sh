@@ -273,6 +273,7 @@ systemctl enable systemd-timesyncd
 systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable apparmor
+systemctl enable tlp
 systemctl enable grub-btrfs.path # adds snapshots to grub
 
 echo "--------------------------------------------------------------------------"
