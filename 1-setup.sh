@@ -211,7 +211,7 @@ pi zsh bash-completion
 # 'zsh-autosuggestions'
 
 echo "#### Install audio packages and manager"
-pi alsa-plugins alsa-tools alsa-utils                         
+pi alsa-plugins alsa-tools alsa-utils alsa-ucm-conf sof-firmware
 pi pulseaudio pulseaudio-alsa pulseaudio-bluetooth
 echo "#### Install Bluetooth provider"
 pi bluez bluez-libs bluez-utils                    
