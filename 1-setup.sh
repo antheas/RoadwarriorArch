@@ -188,7 +188,7 @@ elif lspci | grep -E "VGA compatible controller: Intel"; then
   # Don't install xf86-video-intel! (at least for new laptops)
   # https://wiki.archlinux.org/title/intel_graphics#Installation
   # https://wiki.archlinux.org/title/Hardware_video_acceleration
-  pi intel-media-driver libva-utils intel-gpu-tools
+  pi intel-media-driver libva-utils intel-gpu-tools vulkan-icd-loader vulkan-intel
 
   # TODO: older intel gpus
 fi
