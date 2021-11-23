@@ -63,6 +63,9 @@ ya vivaldi vivaldi-ffmpeg-codecs
 ya visual-studio-code-bin solaar skypeforlinux-stable-bin keepassxc gnome-keyring
 ya darktable inkscape rapid-photo-downloader gimp 
 
+echo "#### Installing Wacom Support"
+ya kcm-wacomtablet xf86-input-wacom
+
 echo "#### Installing LaTeX"
 ya texlive-most texlive-langgreek texlive-latexindent-meta
 
