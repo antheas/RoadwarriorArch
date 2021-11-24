@@ -217,7 +217,7 @@ echo "#### Install Bluetooth provider"
 pi bluez bluez-libs bluez-utils                    
 
 echo "#### Install Fuse mounts, mount GDrive, OneDrive etc with rclone"
-pi rclone fuse2 fuse3
+pi rclone sshfs fuse2 fuse3
 echo "#### Install Python"
 pi python python2 python-pip python2-pip
 
