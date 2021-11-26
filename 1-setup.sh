@@ -74,6 +74,7 @@ locale-gen
 localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
 localectl --no-ask-password set-keymap ${keymap:-us}
 
+# FIXME: doesn't work
 timedatectl --no-ask-password set-timezone ${timezone:-America/Chicago}
 timedatectl --no-ask-password set-ntp 1
 
@@ -106,13 +107,13 @@ echo "KEYMAP=${keymap:-us}" > /etc/vconsole.conf
 # ==> WARNING: Possibly missing firmware for module: wd719x
 # ==> WARNING: Possibly missing firmware for module: xhci_pci
 # https://wiki.archlinux.org/title/Mkinitcpio#Possibly_missing_firmware_for_module_XXXX
+# They only appear for fallback generation, which enables all modules
 mkinitcpio -P
 
 echo "--------------------------------------------------------------------------"
-echo "- GRUB BIOS Bootloader Install&Check"
+echo "- Generating Kernel Command Line "
 echo "--------------------------------------------------------------------------"
 # Setting up LUKS2 encryption in grub.
-echo "Setting up grub config."
 LUKS_UUID=$(blkid -s UUID -o value ${CRYPT_PART})
 echo "LUKS partition (${CRYPT_PART}) UUID: ${LUKS_UUID}"
 
@@ -128,11 +129,18 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 # Why hibernate? Because if you leave your laptop on standby it will run until
 # it runs out of battery and you'll lose your session.
 # With hibernate the laptop will automatically turn off after a set amount of hours.
-# Bonus: the luks partition will be locked, preventing cold boot attacks.
+# Bonus: the luks partition will be locked, preventing cold boot attacks (if TPM is disabled).
 
 # Timeout doesn't work, systemd enters emergency shell and user can retry
 # So, timeouts and limited retries are disabled for now
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+CMD_LINE="\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}"
+echo "Kernel CMD: ${CMD_LINE}"
+
+echo "--------------------------------------------------------------------------"
+echo "- GRUB BIOS Bootloader Install&Check"
+echo "--------------------------------------------------------------------------"
+
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 # Add tpm module
 sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"part_gpt part_msdos tpm\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
 
@@ -144,12 +152,148 @@ sed -i "s,^GRUB_DEFAULT=0,GRUB_DEFAULT=saved,g"                 /etc/default/gru
 sed -i "s,^#GRUB_SAVEDEFAULT,GRUB_SAVEDEFAULT,g"                /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
-if [[ -d "/sys/firmware/efi" ]]; then
-  grub-install --target=x86_64-efi --efi-directory=/boot/ --bootloader-id=RoadwarriorArch
-else
-  grub-install --target=i386-pc --bootloader-id=RoadwarriorArch ${DISK}
+if [[ ! -d "/sys/firmware/efi" ]]; then
+  grub-install --target=i386-pc --bootloader-id=${distroname:-RoadwarriorArch} ${DISK}
 fi
+grub-install --target=x86_64-efi --efi-directory=/boot/ --bootloader-id=${distroname:-RoadwarriorArch} --modules="[part_gpt part_msdos tpm]"
 grub-mkconfig -o /boot/grub/grub.cfg
+
+
+echo "--------------------------------------------------------------------------"
+echo "- Secure boot Key creation and Setup"
+echo "--------------------------------------------------------------------------"
+
+# We are going to setup a key directory for secure boot
+# We are not going to enroll the keys automatically to not mess with the BIOS
+# https://www.rodsbooks.com/efi-bootloaders/controlling-sb.html#creatingkeys
+# https://wiki.archlinux.org/title/Unified_Extensible_Firmware_Interface/Secure_Boot#Creating_keys
+
+# Certain laptops may be bricked by using KeyTool or disabling the microsoft keys
+# - Certain Thinkpad models can have their BIOS corrupted by keytool (T14 gen 1 etc)
+# - Certain laptops with an NVIDIA GPU that's directly connected to the onboard display
+#   (after disabling optimus) require loading an option ROM that's signed using microsoft keys
+#   to display the BIOS. Without it, you'll either need to plug your laptop to a VGA display
+#   or reset it blindly, because the onboard display will be disabled before loading the OS.
+
+# However, no laptops are bricked by using the onboard BIOS utility and if you
+# don't touch the rest of the keys the NVIDIA option ROM will load normally.
+# If your BIOS doesn't allow for enrolling keys manually, you might have to use KeyTool and reset the keys.
+# In that case, check for a reset to factory option for the built-in keys. 
+# Otherwise, i'd be a good idea to also save your original keys by following the arch guide.
+
+# In my case, Lenovo allows me to browse the keystore from the bios and add my
+# DB key by browsing the connected storage devices. 
+# I can leave the original PK, KEK, db, and dbx as they are.
+# The value of the TPM2 PCR 7 is also influenced by the loaded keys during boot
+# So, an attacker can't unlock my TPM-protected LUKS2 volume by running code
+# not signed by me. 
+# This is not universally the case, for your system PCR 7 might only be influenced
+# only by whether secure boot is on. That would make relying only on PCR 7 insecure...
+
+# According to Microsoft:
+# Before launching an EFI Driver or an EFI Boot Application (and regardless of 
+# whether the launch is due to the EFI Boot Manager picking an image from the 
+# DriverOrder or BootOrder UEFI variables or an already launched image calling 
+# the UEFI LoadImage() function), the UEFI firmware SHALL measure the entry in 
+# the EFI_IMAGE_SECURITY_DATABASE_GUID/EFI_IMAGE_SECURITY_DATABASE variable that 
+# was used to validate the EFI image into PCR[7]. 
+# https://docs.microsoft.com/en-us/windows-hardware/test/hlk/testref/trusted-execution-environment-efi-protocol#appendix-a-static-root-of-trust-measurements
+
+# That means that any modification to the KeyStore would prevent unlocking the volume
+# Using an EFI image signed with a proper key which is not the same would also not unlock the volume.
+
+echo "Creating Secureboot keys at /crypt/sb"
+echo "GRUB and EFI Stubs will be signed by /crypt/sb/DB.key"
+echo "Enroll it in the BIOS manually by copying /crypt/sb/DB.crt to a flash drive"
+echo "PK, KEK keys have also been created"
+echo "You don't need to enroll them if your bios allows manual editing of the keystore"
+mkdir -p /crypt/sb
+cd /crypt/sb
+
+################################################################################
+# Sourced from:
+# https://www.rodsbooks.com/efi-bootloaders/controlling-sb.html#creatingkeys
+# Python dependencry for UUID removed.
+
+#!/bin/bash
+# Copyright (c) 2015 by Roderick W. Smith
+# Licensed under the terms of the GPL v3
+# echo -n "Enter a Common Name to embed in the keys: "
+# read NAME
+NAME=${distroname:-RoadwarriorArch}
+
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$NAME PK/" -keyout PK.key \
+        -out PK.crt -days 3650 -nodes -sha256
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$NAME KEK/" -keyout KEK.key \
+        -out KEK.crt -days 3650 -nodes -sha256
+openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$NAME DB/" -keyout DB.key \
+        -out DB.crt -days 3650 -nodes -sha256
+openssl x509 -in PK.crt -out PK.cer -outform DER
+openssl x509 -in KEK.crt -out KEK.cer -outform DER
+openssl x509 -in DB.crt -out DB.cer -outform DER
+
+
+GUID=$(uuidgen --random)
+echo $GUID > GUID.txt
+
+cert-to-efi-sig-list -g $GUID PK.crt PK.esl
+cert-to-efi-sig-list -g $GUID KEK.crt KEK.esl
+cert-to-efi-sig-list -g $GUID DB.crt DB.esl
+rm -f noPK.esl
+touch noPK.esl
+
+sign-efi-sig-list -t "$(date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
+                  -k PK.key -c PK.crt PK PK.esl PK.auth
+sign-efi-sig-list -t "$(date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
+                  -k PK.key -c PK.crt PK noPK.esl noPK.auth
+sign-efi-sig-list -t "$(date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
+                  -k PK.key -c PK.crt KEK KEK.esl KEK.auth
+sign-efi-sig-list -t "$(date --date='1 second' +'%Y-%m-%d %H:%M:%S')" \
+                  -k KEK.key -c KEK.crt db DB.esl DB.auth
+
+chmod 0600 *.key
+
+echo ""
+echo ""
+echo "For use with KeyTool, copy the *.auth and *.esl files to a FAT USB"
+echo "flash drive or to your EFI System Partition (ESP)."
+echo "For use with most UEFIs' built-in key managers, copy the *.cer files;"
+echo "but some UEFIs require the *.auth files."
+echo ""
+################################################################################
+
+echo "Keys created"
+
+# sbupdate is a simple script available from github and AUR that adds hooks
+# for regenerating a complete image file (kernel, initramfs, cmdline) that's
+# signed by your keys, every time the kernel updates.
+# That way if the system works correctly, you can boot directly to the OS, skipping GRUB.
+
+# You can go through it in the link below. 
+# GRUB will also be signed so you won't need to disable secure boot to use it.
+# https://github.com/andreyv/sbupdate
+echo "Installing sbupdate, a simple script and hooks for producing signed boot images"
+
+if [ -z "$(pacman -Q sbupdate 2> /dev/null)" ]; then
+  echo "Installing sbupdate from AUR"
+  cd ~
+  rm -f -r sbupdate
+  mkdir -p sbupdate && cd sbupdate
+  git clone "https://aur.archlinux.org/sbupdate-git.git" .
+  makepkg -si --noconfirm
+  cd ..
+  rm -f -r sbupdate
+else
+  echo "sbupdate is currently installed"
+fi
+
+echo "Configuring sbupdate"
+cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
+sed -i "s/_cmdline_/${CMD_LINE}/g" /etc/sbupdate.conf
+sed -i "s/_distroname_/${distroname:-RoadwarriorArch}/g" /etc/sbupdate.conf
+
+echo "Signing current kernels and GRUB"
+sbupdate
 
 echo "--------------------------------------------------------------------------"
 echo "- Creating user"

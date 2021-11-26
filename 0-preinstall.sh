@@ -189,10 +189,11 @@ if ! grep -qs '/mnt' /proc/mounts; then
   exit 1
 fi
 
-openssl genrsa -out /mnt/crypto_keyfile.bin 4096
-chmod 600 /mnt/crypto_keyfile.bin
-echo -n "$password" | cryptsetup luksAddKey "${DISKP}3" /mnt/crypto_keyfile.bin -d -
-echo "Created /crypto_keyfile.bin as an alternative unlock key."
+mkdir -p /mnt/crypt
+openssl genrsa -out /mnt/crypt/keyfile.bin 4096
+chmod 600 /mnt/crypt/keyfile.bin
+echo -n "$password" | cryptsetup luksAddKey "${DISKP}3" /mnt/crypt/keyfile.bin -d -
+echo "Created /crypt/keyfile.bin as an alternative unlock key."
 echo "Save it after install in case you forget your keyword."
 read -p "Press any key to continue..."
 
