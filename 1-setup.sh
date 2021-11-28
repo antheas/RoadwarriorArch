@@ -110,6 +110,11 @@ echo "KEYMAP=${keymap:-us}" > /etc/vconsole.conf
 # They only appear for fallback generation, which enables all modules
 mkinitcpio -P
 
+# Generate initramfs with keyfile to use with GRUB, so password is not entered twice
+# <() pipes in command as a file
+mkinitcpio -g /boot/initramfs-keyfile.img \
+  -c <(echo -e "MODULES=()\nBINARIES=()\nFILES=(/crypt/keyfile.bin)\nHOOKS=()\nCOMPRESSION=\"zstd\"")
+
 echo "--------------------------------------------------------------------------"
 echo "- Generating Kernel Command Line "
 echo "--------------------------------------------------------------------------"
@@ -139,25 +144,40 @@ echo "Kernel CMD: ${CMD_LINE}"
 echo "--------------------------------------------------------------------------"
 echo "- GRUB BIOS Bootloader Install&Check"
 echo "--------------------------------------------------------------------------"
+# GRUB will be installed as a failsafe in case something goes wrong
+# It will be signed to be bootable with secure boot
+# It will also be unlocked so that you can enter any settings to make sure you
+# can boot. 
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE}\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+# /boot is encrypted so TPM support with GRUB is not possible. Besides, by booting
+# directly with an EFISTUB you can lower boot time by 5s.
+# GRUB will mess up PCRs 8 and 9, so you can make sure it can't be used with an 
+# alternate config and kernel to bypass the TPM by binding PCR 8
+
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.key=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 # Add tpm module
 sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"part_gpt part_msdos tpm\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
 
-# Hide grub menu, remember last kernel
-echo "GRUB menu will be hidden, hold shift to access during boot"
-sed -i "s,^GRUB_TIMEOUT_STYLE=menu,GRUB_TIMEOUT_STYLE=hidden,g" /etc/default/grub
-sed -i "s,^GRUB_TIMEOUT=5,GRUB_TIMEOUT=3,g"                     /etc/default/grub
-sed -i "s,^GRUB_DEFAULT=0,GRUB_DEFAULT=saved,g"                 /etc/default/grub
-sed -i "s,^#GRUB_SAVEDEFAULT,GRUB_SAVEDEFAULT,g"                /etc/default/grub
+# Since GRUB support is integrated as a failsafe, using a hidden menu is pointless.
+# # Hide grub menu, remember last kernel
+# echo "GRUB menu will be hidden, hold shift to access during boot"
+# sed -i "s,^GRUB_TIMEOUT_STYLE=menu,GRUB_TIMEOUT_STYLE=hidden,g"  /etc/default/grub
+# sed -i "s,^GRUB_TIMEOUT=5,GRUB_TIMEOUT=3,g"                      /etc/default/grub
+# sed -i "s,^GRUB_DEFAULT=0,GRUB_DEFAULT=saved,g"                  /etc/default/grub
+# sed -i "s,^#GRUB_SAVEDEFAULT,GRUB_SAVEDEFAULT,g"                 /etc/default/grub
+
+# Enable cryptodisk support in the grub image
+sed -i "s,^#GRUB_ENABLE_CRYPTODISK=y,GRUB_ENABLE_CRYPTODISK=y,g" /etc/default/grub
+
+echo "GRUB_EARLY_INITRD_LINUX_CUSTOM=''"
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
-if [[ ! -d "/sys/firmware/efi" ]]; then
+# if [[ ! -d "/sys/firmware/efi" ]]; then
   grub-install --target=i386-pc --bootloader-id=${distroname:-RoadwarriorArch} ${DISK}
-fi
-grub-install --target=x86_64-efi --efi-directory=/boot/ --bootloader-id=${distroname:-RoadwarriorArch} --modules="[part_gpt part_msdos tpm]"
+# fi
+grub-install --target=x86_64-efi --efi-directory=/efi/ --portable \
+  --bootloader-id=${distroname:-RoadwarriorArch} --modules="[part_gpt part_msdos tpm]"
 grub-mkconfig -o /boot/grub/grub.cfg
-
 
 echo "--------------------------------------------------------------------------"
 echo "- Secure boot Key creation and Setup"
