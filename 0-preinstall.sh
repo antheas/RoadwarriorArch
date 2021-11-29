@@ -118,6 +118,7 @@ while
 do true; done
 # cryptsetup has sane defaults (luks2, etc)
 # https://wiki.archlinux.org/title/dm-crypt/Device_encryption#Encryption_options_for_LUKS_mode
+# grub supports only pbkdf2: cryptsetup luksConvertKey /dev/nvme0n1p3 --pbkdf=pbkdf2
 echo -n "$password" | cryptsetup luksFormat "${DISKP}3" --pbkdf=pbkdf2 -d -
 
 # Formating internal partition to btrfs
