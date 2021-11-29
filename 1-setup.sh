@@ -157,7 +157,7 @@ echo "--------------------------------------------------------------------------
 
 sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.options=$LUKS_UUID=discard rd.luks.key=$LUKS_UUID=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 # Add tpm and crypto modules
-GRUB_MODULES="part_gpt part_msdos btrfs cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
+GRUB_MODULES="keylayouts part_gpt part_msdos normal gzio fat btrfs cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
 sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
 
 # Since GRUB support is integrated as a failsafe, using a hidden menu is pointless.
@@ -344,7 +344,7 @@ if ! source ${SCRIPT_DIR}/install.conf; then
   echo "username=$username\npassword=$password\nhostname=$hostname" >> ${SCRIPT_DIR}/install.conf
 fi
 
-if [ $(whoami) = "root"  ]; then
+if [ $(whoami) = "root" ] && [ -z $(users | grep "$username") ]; then
   useradd -m -G wheel -s /bin/bash $username || /bin/true
   echo "$username:$password" | chpasswd
   echo $hostname > /etc/hostname
