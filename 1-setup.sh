@@ -208,6 +208,10 @@ grub-mkimage -p '/boot/grub' -O x86_64-efi --disable-shim-lock \
     -c "$CONFIG" -o $GRUB_IMG $GRUB_MODULES efi_gop efi_uga
 cp $GRUB_IMG /efi/EFI/BOOT/BOOTX64.EFI
 cp $GRUB_IMG /efi/EFI/${distroname:-RoadwarriorArch}/grubx64.efi
+# Disable kernel verification since kernel is protected
+# It's a botch (disables module verification as well) but you won't be using grub anyway...
+# https://wejn.org/2021/09/fixing-grub-verification-requested-nobody-cares/
+sed -i 's/SecureBoot/SecureB00t/' /efi/EFI/${distroname:-RoadwarriorArch}/grubx64.efi
 
 # BIOS Install
 grub-mkimage -p '/boot/grub' -O i386-pc \
