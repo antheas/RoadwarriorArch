@@ -330,7 +330,7 @@ echo "Keys created"
 chmod 700 -R /crypt
 
 echo "Configuring sbupdate (installed later)"
-cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
+cp ${SCRIPT_DIR}/sbupdate.conf /etc/sbupdate.conf
 sed -i "s,_cmdline_,${CMD_LINE} rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto,g" /etc/sbupdate.conf
 sed -i "s,_distroname_,${distroname:-RoadwarriorArch},g" /etc/sbupdate.conf
 
