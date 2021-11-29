@@ -69,7 +69,10 @@ echo "--------------------------------------------------------------------------
 echo "- Setup Language, locale, and timezone       "
 echo "--------------------------------------------------------------------------"
 source ${SCRIPT_DIR}/install.conf || /bin/true
-echo -e "\n#Installed by Roadwarrior\n${locale_gen:-en_US.UTF-8 UTF-8}" >> /etc/locale.gen
+for loc in "${locale_gen[@]:-("en_US.UTF-8\ UTF-8")}"; do
+  echo "Installing Locale $loc"
+  sed -i "s/#${loc}/${loc}/" /etc/locale.gen
+done
 locale-gen
 localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
 localectl --no-ask-password set-keymap ${keymap:-us}
@@ -111,7 +114,7 @@ mkinitcpio -P
 
 # Generate initramfs with keyfile to use with GRUB, so password is not entered twice
 # https://wiki.gentoo.org/wiki/Custom_Initramfs#Creating_a_separate_file
-echo /crypt/keyfile.bin | cpio --null --create --verbose --format=newc | gzip --best > /boot/initramfs-keyfile.img
+echo -e "/crypt\n/crypt/keyfile.bin" | cpio --create --verbose --format=newc | gzip --best > /boot/initramfs-keyfile.cpio.gz
 
 echo "--------------------------------------------------------------------------"
 echo "- Generating Kernel Command Line "
@@ -152,7 +155,7 @@ echo "--------------------------------------------------------------------------
 # GRUB will mess up PCRs 8 and 9, so you can make sure it can't be used with an 
 # alternate config and kernel to bypass the TPM by binding PCR 8
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.key=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.key=$LUKS_UUID=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 # Add tpm and crypto modules
 GRUB_MODULES="part_gpt part_msdos btrfs cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
 sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
@@ -165,17 +168,59 @@ sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PR
 # sed -i "s,^GRUB_DEFAULT=0,GRUB_DEFAULT=saved,g"                  /etc/default/grub
 # sed -i "s,^#GRUB_SAVEDEFAULT,GRUB_SAVEDEFAULT,g"                 /etc/default/grub
 
-# Enable cryptodisk support in the grub image
+# Enable cryptodisk support in the grub image (not working for now for LUKS2)
 sed -i "s,^#GRUB_ENABLE_CRYPTODISK=y,GRUB_ENABLE_CRYPTODISK=y,g" /etc/default/grub
 # Add unlock keyfile to ramdisk
-echo "GRUB_EARLY_INITRD_LINUX_CUSTOM=\"/boot/initramfs-keyfile.img\"" >> /etc/default/grub
+echo "GRUB_EARLY_INITRD_LINUX_STOCK=\"initramfs-keyfile.cpio.gz\"" >> /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
-# if [[ ! -d "/sys/firmware/efi" ]]; then
-  grub-install --target=i386-pc --bootloader-id=${distroname:-RoadwarriorArch} ${DISK} --modules="$GRUB_MODULES"
-# fi
-grub-install --target=x86_64-efi --efi-directory=/efi/ --no-nvram \
-  --bootloader-id=${distroname:-RoadwarriorArch} --modules="$GRUB_MODULES"
+# Also, luks2 support is preliminary so we have to install grub manually
+# the `cryptomount` command doesn't support `-` for LUKS2 so grub-install doesn't work
+CONFIG=$(mktemp /tmp/grub-config.XXXXX) 
+cat >"$CONFIG" <<EOF
+cryptomount -u ${LUKS_UUID//-/}
+
+set root=crypto0
+set prefix=(crypto0)/@/boot/grub
+
+insmod normal
+normal
+EOF
+
+# Manual install inspired by:
+# https://github.com/coreos/scripts/blob/master/build_library/grub_install.sh
+
+# Use grub-install to prime locale, font, pc modules
+grub-install --target=i386-pc ${DISK} --no-bootsector
+# Copy efi dependencies manually
+cp -Rf /usr/lib/grub/x86_64-efi /boot/grub/x86_64-efi
+
+GRUB_IMG=$(mktemp /tmp/grub-img.XXXXX) 
+
+# EFI Install
+# Install on both default location and `distroname` dir
+# default location will be unsigned
+mkdir -p /efi/EFI/BOOT
+mkdir -p /efi/EFI/${distroname:-RoadwarriorArch}
+grub-mkimage -p '/boot/grub' -O x86_64-efi \
+    -c "$CONFIG" -o $GRUB_IMG $GRUB_MODULES
+cp $GRUB_IMG /efi/EFI/BOOT/BOOTX64.EFI
+cp $GRUB_IMG /efi/EFI/${distroname:-RoadwarriorArch}/grubx64.efi
+
+# BIOS Install
+grub-mkimage -p '/boot/grub' -O i386-pc \
+  -c "$CONFIG" -o "/boot/grub/core-bios.img" $GRUB_MODULES biosdisk serial
+grub-bios-setup -d '/boot/grub' -b 'i386-pc/boot.img' -c 'core-bios.img' \
+  --device-map=/dev/null $DISK
+
+rm "$CONFIG" "$GRUB_IMG"
+
+# Automatic Install
+# # if [[ ! -d "/sys/firmware/efi" ]]; then
+#   grub-install --target=i386-pc ${DISK} --modules="$GRUB_MODULES"
+# # fi
+# grub-install --target=x86_64-efi --efi-directory=/efi/ --no-nvram \
+#   --bootloader-id=${distroname:-RoadwarriorArch} --modules="$GRUB_MODULES"
 grub-mkconfig -o /boot/grub/grub.cfg
 
 echo "--------------------------------------------------------------------------"
@@ -284,9 +329,9 @@ echo ""
 echo "Keys created"
 
 echo "Configuring sbupdate (installed later)"
-sudo cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
-sudo sed -i "s/_cmdline_/${CMD_LINE}/g" /etc/sbupdate.conf
-sudo sed -i "s/_distroname_/${distroname:-RoadwarriorArch}/g" /etc/sbupdate.conf
+cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
+sed -i "s,_cmdline_,${CMD_LINE},g" /etc/sbupdate.conf
+sed -i "s,_distroname_,${distroname:-RoadwarriorArch},g" /etc/sbupdate.conf
 
 echo "--------------------------------------------------------------------------"
 echo "- Creating user"
@@ -375,8 +420,6 @@ pi snapper grub-btrfs # snap-pac <- enable only after installing software
 # pi wine wine-gecko wine-mono winetrics
 # Virtual machines, alternative to Virtualbox
 # pi qemu virt-manager virt-viewer 
-# Time Synchronisation
-# pi ntp
 
 echo "#### Install Fun packages"
 pi neofetch cmatrix archlinux-wallpaper 

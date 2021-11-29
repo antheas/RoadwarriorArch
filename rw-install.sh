@@ -4,6 +4,7 @@ set -e
 bash ${SCRIPT_DIR}/0-preinstall.sh
 
 # Copy repo to root
+# rm -R -f /mnt/root/install-script && cp -R ../rw /mnt/root/install-script && arch-chroot /mnt /root/install-script/1-setup.sh
 rm -R -f /mnt/root/install-script
 cp -R ${SCRIPT_DIR} /mnt/root/install-script
 
