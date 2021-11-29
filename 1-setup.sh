@@ -402,7 +402,7 @@ pi bluez bluez-libs bluez-utils
 echo "#### Install Fuse mounts, mount GDrive, OneDrive etc with rclone"
 pi rclone sshfs fuse2 fuse3
 echo "#### Install Python"
-pi python python2 python-pip python2-pip
+pi python python-pip python2
 
 echo "#### Install a collection of useful tools"
 pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget rsync pacman-contrib openvpn
