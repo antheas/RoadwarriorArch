@@ -334,7 +334,8 @@ fi
 
 echo "Configuring sbupdate (installed later)"
 cp ${SCRIPT_DIR}/sbupdate.conf /etc/sbupdate.conf
-sed -i "s,_cmdline_,${CMD_LINE} rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto,g" /etc/sbupdate.conf
+# GRUB appends some parameters to the cmd line, we add them here
+sed -i "s,_cmdline_,rw rootflags=subvol=@ ${CMD_LINE} rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto,g" /etc/sbupdate.conf
 sed -i "s,_distroname_,${distroname:-RoadwarriorArch},g" /etc/sbupdate.conf
 
 echo "--------------------------------------------------------------------------"
