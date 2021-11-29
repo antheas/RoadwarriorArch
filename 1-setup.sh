@@ -157,7 +157,9 @@ echo "--------------------------------------------------------------------------
 
 sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.options=$LUKS_UUID=discard rd.luks.key=$LUKS_UUID=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 # Add tpm and crypto modules
-GRUB_MODULES="keylayouts part_gpt part_msdos normal gzio fat btrfs cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
+GRUB_MODULES="part_gpt part_msdos gzio fat btrfs"
+GRUB_MODULES+=" cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
+GRUB_MODULES+=" normal test all_video video_bochs video_cirrus search echo linux"
 sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
 
 # Since GRUB support is integrated as a failsafe, using a hidden menu is pointless.
@@ -202,8 +204,8 @@ GRUB_IMG=$(mktemp /tmp/grub-img.XXXXX)
 # default location will be unsigned
 mkdir -p /efi/EFI/BOOT
 mkdir -p /efi/EFI/${distroname:-RoadwarriorArch}
-grub-mkimage -p '/boot/grub' -O x86_64-efi \
-    -c "$CONFIG" -o $GRUB_IMG $GRUB_MODULES
+grub-mkimage -p '/boot/grub' -O x86_64-efi --disable-shim-lock \
+    -c "$CONFIG" -o $GRUB_IMG $GRUB_MODULES efi_gop efi_uga
 cp $GRUB_IMG /efi/EFI/BOOT/BOOTX64.EFI
 cp $GRUB_IMG /efi/EFI/${distroname:-RoadwarriorArch}/grubx64.efi
 
