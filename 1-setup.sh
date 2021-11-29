@@ -510,5 +510,21 @@ chmod a+rx /home/.snapshots
 chown :wheel /home/.snapshots
 
 echo "--------------------------------------------------------------------------"
+echo "- EFI "
+echo "--------------------------------------------------------------------------"
+read -p "Create EFI entries? (y/N):" installNow
+case $installNow in
+  y|Y|yes|Yes|YES)
+    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - GRUB"      --loader "/EFI/${distroname:-RoadwarriorArch}/grubx64.efi"
+    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - Linux LTS" --loader "/EFI/${distroname:-RoadwarriorArch}/linux-lts-signed.efi"
+    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - Linux"     --loader "/EFI/${distroname:-RoadwarriorArch}/linux-signed.efi"
+    ;;
+  *)
+    echo "Exiting..."
+    exit 0
+    ;;
+esac
+
+echo "--------------------------------------------------------------------------"
 echo "- Finished system installation"
 echo "--------------------------------------------------------------------------"
