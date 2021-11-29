@@ -89,7 +89,7 @@ PKGS=(
 # 'lightlyshaders-git'
 # 'mangohud' # Gaming FPS Counter
 # 'mangohud-common'
-'ocs-url' # install packages from websites
+# 'ocs-url' # install packages from websites
 'snapper-gui-git'
 'konsave'
 )

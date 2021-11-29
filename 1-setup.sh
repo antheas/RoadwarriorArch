@@ -139,7 +139,7 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 
 # Timeout doesn't work, systemd enters emergency shell and user can retry
 # So, timeouts and limited retries are disabled for now
-CMD_LINE="quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}"
+CMD_LINE="quiet rd.luks.name=$LUKS_UUID=cryptroot root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}"
 echo "Kernel CMD: ${CMD_LINE}"
 
 echo "--------------------------------------------------------------------------"
@@ -155,7 +155,7 @@ echo "--------------------------------------------------------------------------
 # GRUB will mess up PCRs 8 and 9, so you can make sure it can't be used with an 
 # alternate config and kernel to bypass the TPM by binding PCR 8
 
-sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.key=$LUKS_UUID=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
+sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.options=$LUKS_UUID=discard rd.luks.key=$LUKS_UUID=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
 # Add tpm and crypto modules
 GRUB_MODULES="part_gpt part_msdos btrfs cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
 sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
@@ -171,7 +171,7 @@ sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PR
 # Enable cryptodisk support in the grub image (not working for now for LUKS2)
 sed -i "s,^#GRUB_ENABLE_CRYPTODISK=y,GRUB_ENABLE_CRYPTODISK=y,g" /etc/default/grub
 # Add unlock keyfile to ramdisk
-echo "GRUB_EARLY_INITRD_LINUX_STOCK=\"initramfs-keyfile.cpio.gz\"" >> /etc/default/grub
+echo "GRUB_EARLY_INITRD_LINUX_CUSTOM=\"initramfs-keyfile.cpio.gz\"" >> /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 # Also, luks2 support is preliminary so we have to install grub manually
@@ -330,7 +330,7 @@ echo "Keys created"
 
 echo "Configuring sbupdate (installed later)"
 cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
-sed -i "s,_cmdline_,${CMD_LINE},g" /etc/sbupdate.conf
+sed -i "s,_cmdline_,${CMD_LINE} rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto,g" /etc/sbupdate.conf
 sed -i "s,_distroname_,${distroname:-RoadwarriorArch},g" /etc/sbupdate.conf
 
 echo "--------------------------------------------------------------------------"
