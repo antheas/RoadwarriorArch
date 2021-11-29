@@ -86,8 +86,9 @@ sgdisk -n 3::-0    --typecode=3:8300 --change-name=3:'LUKS' ${DISK} # partition 
 if [[ ! -d "/sys/firmware/efi" ]]; then
   echo "UEFI mode not detected. BIOS support will be enabled. You should use UEFI."
   read -p "ctrl-c to exit so you can check the BIOS, or press any key to continue..."
-  sgdisk -A 1:set:2 ${DISK}
 fi
+# Always enable BIOS support
+sgdisk -A 1:set:2 ${DISK}
 
 # NVMe partitions are in the style /dev/nvme0n1p2
 # SATA partitions are in the style /dev/sda1
@@ -117,7 +118,7 @@ while
 do true; done
 # cryptsetup has sane defaults (luks2, etc)
 # https://wiki.archlinux.org/title/dm-crypt/Device_encryption#Encryption_options_for_LUKS_mode
-echo -n "$password" | cryptsetup luksFormat "${DISKP}3" -d -
+echo -n "$password" | cryptsetup luksFormat "${DISKP}3" --pbkdf=pbkdf2 -d -
 
 # Formating internal partition to btrfs
 echo -e "\nOpening partition..."
@@ -160,7 +161,7 @@ mkdir -p /mnt/home
 mkdir -p /mnt/var/cache
 mkdir -p /mnt/var/log
 mkdir -p /mnt/swap
-mkdir -p /mnt/boot
+mkdir -p /mnt/efi
 mkdir -p /mnt/.snapshots
 
 # Why mount EFI partition on boot instead of /boot/efi:
@@ -174,7 +175,7 @@ mkdir -p /mnt/.snapshots
 # remember a series of commands.
 # systemd hook doesn't have a proper timeout either...
 # https://wiki.archlinux.org/title/GRUB#Encrypted_/boot
-mount -t vfat "${DISKP}2" /mnt/boot
+mount -t vfat "${DISKP}2" /mnt/efi
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@home      /dev/mapper/cryptroot /mnt/home
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@cache     /dev/mapper/cryptroot /mnt/var/cache
 mount -o defaults,compress=zstd,noatime,space_cache=v2,subvol=@log       /dev/mapper/cryptroot /mnt/var/log
@@ -233,8 +234,8 @@ case "$proc_type" in
 esac	
 
 pacstrap /mnt --noconfirm --needed base base-devel linux linux-headers linux-firmware btrfs-progs archlinux-keyring grub efibootmgr $MICROCODE
-# Optional tools, incl. lts kernel
-pacstrap /mnt --noconfirm --needed linux-tools linux-lts linux-lts-headers apparmor vim nano zstd # sudo wget linbnewt
+# Optional tools, incl. lts kernel + equired by 1-setup.sh
+pacstrap /mnt --noconfirm --needed linux-tools linux-lts linux-lts-headers apparmor vim nano zstd cpio efitools git
 
 genfstab -U /mnt > /mnt/etc/fstab
 echo -e "\nDumping fstab"

@@ -45,7 +45,7 @@ echo "- Setting $iso up mirrors for optimal download         "
 echo "--------------------------------------------------------------------------"
 # Parallel downloads
 sed -i 's/^#Para/Para/' /etc/pacman.conf
-pacman -S --noconfirm rsync reflector
+pacman -S --noconfirm rsync reflector 
 # Sort mirrorlist based on country
 cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
 reflector -a 48 -c $iso -f 5 -l 20 --sort rate --save /etc/pacman.d/mirrorlist
@@ -74,9 +74,8 @@ locale-gen
 localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
 localectl --no-ask-password set-keymap ${keymap:-us}
 
-# FIXME: doesn't work
-timedatectl --no-ask-password set-timezone ${timezone:-America/Chicago}
-timedatectl --no-ask-password set-ntp 1
+ln -sf /usr/share/zoneinfo/${timezone:-America/Chicago} /etc/localtime
+hwclock --systohc
 
 # Set keymaps
 
@@ -111,9 +110,8 @@ echo "KEYMAP=${keymap:-us}" > /etc/vconsole.conf
 mkinitcpio -P
 
 # Generate initramfs with keyfile to use with GRUB, so password is not entered twice
-# <() pipes in command as a file
-mkinitcpio -g /boot/initramfs-keyfile.img \
-  -c <(echo -e "MODULES=()\nBINARIES=()\nFILES=(/crypt/keyfile.bin)\nHOOKS=()\nCOMPRESSION=\"zstd\"")
+# https://wiki.gentoo.org/wiki/Custom_Initramfs#Creating_a_separate_file
+echo /crypt/keyfile.bin | cpio --null --create --verbose --format=newc | gzip --best > /boot/initramfs-keyfile.img
 
 echo "--------------------------------------------------------------------------"
 echo "- Generating Kernel Command Line "
@@ -138,14 +136,14 @@ echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $
 
 # Timeout doesn't work, systemd enters emergency shell and user can retry
 # So, timeouts and limited retries are disabled for now
-CMD_LINE="\"quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}"
+CMD_LINE="quiet rd.luks.name=$LUKS_UUID=cryptroot rd.luks.options=$LUKS_UUID=discard\,timeout=0\,tries=0\,tpm2-device=auto root=/dev/mapper/cryptroot apparmor=1 security=apparmor udev.log_priority=3 resume=UUID=${SWAP_UUID} resume_offset=${SWAP_OFFSET}"
 echo "Kernel CMD: ${CMD_LINE}"
 
 echo "--------------------------------------------------------------------------"
-echo "- GRUB BIOS Bootloader Install&Check"
+echo "- GRUB Bootloader Install&Check"
 echo "--------------------------------------------------------------------------"
-# GRUB will be installed as a failsafe in case something goes wrong
-# It will be signed to be bootable with secure boot
+# GRUB will be installed as a failsafe in case something goes wrong.
+# It will be signed to be bootable with secure boot.
 # It will also be unlocked so that you can enter any settings to make sure you
 # can boot. 
 
@@ -155,8 +153,9 @@ echo "--------------------------------------------------------------------------
 # alternate config and kernel to bypass the TPM by binding PCR 8
 
 sed -i "s,^GRUB_CMDLINE_LINUX_DEFAULT,GRUB_CMDLINE_LINUX_DEFAULT=\"${CMD_LINE} rd.luks.key=/crypt/keyfile.bin\"\n#GRUB_CMDLINE_LINUX_DEFAULT,g" /etc/default/grub
-# Add tpm module
-sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"part_gpt part_msdos tpm\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
+# Add tpm and crypto modules
+GRUB_MODULES="part_gpt part_msdos btrfs cryptodisk luks2 pbkdf2 gcry_rijndael gcry_sha256 gcry_sha512"
+sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"$GRUB_MODULES\"\n#GRUB_PRELOAD_MODULES,g" /etc/default/grub
 
 # Since GRUB support is integrated as a failsafe, using a hidden menu is pointless.
 # # Hide grub menu, remember last kernel
@@ -168,15 +167,15 @@ sed -i "s,^GRUB_PRELOAD_MODULES,GRUB_PRELOAD_MODULES=\"part_gpt part_msdos tpm\"
 
 # Enable cryptodisk support in the grub image
 sed -i "s,^#GRUB_ENABLE_CRYPTODISK=y,GRUB_ENABLE_CRYPTODISK=y,g" /etc/default/grub
-
-echo "GRUB_EARLY_INITRD_LINUX_CUSTOM=''"
+# Add unlock keyfile to ramdisk
+echo "GRUB_EARLY_INITRD_LINUX_CUSTOM=\"/boot/initramfs-keyfile.img\"" >> /etc/default/grub
 
 # Has to be in chroot to run correctly, besides grub isn't available in the iso.
 # if [[ ! -d "/sys/firmware/efi" ]]; then
-  grub-install --target=i386-pc --bootloader-id=${distroname:-RoadwarriorArch} ${DISK}
+  grub-install --target=i386-pc --bootloader-id=${distroname:-RoadwarriorArch} ${DISK} --modules="$GRUB_MODULES"
 # fi
-grub-install --target=x86_64-efi --efi-directory=/efi/ --portable \
-  --bootloader-id=${distroname:-RoadwarriorArch} --modules="[part_gpt part_msdos tpm]"
+grub-install --target=x86_64-efi --efi-directory=/efi/ --no-nvram \
+  --bootloader-id=${distroname:-RoadwarriorArch} --modules="$GRUB_MODULES"
 grub-mkconfig -o /boot/grub/grub.cfg
 
 echo "--------------------------------------------------------------------------"
@@ -284,36 +283,10 @@ echo ""
 
 echo "Keys created"
 
-# sbupdate is a simple script available from github and AUR that adds hooks
-# for regenerating a complete image file (kernel, initramfs, cmdline) that's
-# signed by your keys, every time the kernel updates.
-# That way if the system works correctly, you can boot directly to the OS, skipping GRUB.
-
-# You can go through it in the link below. 
-# GRUB will also be signed so you won't need to disable secure boot to use it.
-# https://github.com/andreyv/sbupdate
-echo "Installing sbupdate, a simple script and hooks for producing signed boot images"
-
-if [ -z "$(pacman -Q sbupdate 2> /dev/null)" ]; then
-  echo "Installing sbupdate from AUR"
-  cd ~
-  rm -f -r sbupdate
-  mkdir -p sbupdate && cd sbupdate
-  git clone "https://aur.archlinux.org/sbupdate-git.git" .
-  makepkg -si --noconfirm
-  cd ..
-  rm -f -r sbupdate
-else
-  echo "sbupdate is currently installed"
-fi
-
-echo "Configuring sbupdate"
-cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
-sed -i "s/_cmdline_/${CMD_LINE}/g" /etc/sbupdate.conf
-sed -i "s/_distroname_/${distroname:-RoadwarriorArch}/g" /etc/sbupdate.conf
-
-echo "Signing current kernels and GRUB"
-sbupdate
+echo "Configuring sbupdate (installed later)"
+sudo cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
+sudo sed -i "s/_cmdline_/${CMD_LINE}/g" /etc/sbupdate.conf
+sudo sed -i "s/_distroname_/${distroname:-RoadwarriorArch}/g" /etc/sbupdate.conf
 
 echo "--------------------------------------------------------------------------"
 echo "- Creating user"

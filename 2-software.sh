@@ -48,6 +48,20 @@ ya () {
   yay -S --noconfirm $@
 }
 
+echo "#### Installing sbupdate, a simple script and hooks for producing signed boot images"
+ya sbupdate
+# sbupdate is a simple script available from github and AUR that adds hooks
+# for regenerating a complete image file (kernel, initramfs, cmdline) that's
+# signed by your keys, every time the kernel updates.
+# That way if the system works correctly, you can boot directly to the OS, skipping GRUB.
+
+# You can go through it in the link below. 
+# GRUB will also be signed so you won't need to disable secure boot to use it.
+# https://github.com/andreyv/sbupdate
+
+echo "Signing current kernels and GRUB"
+sudo sbupdate
+
 echo "#### Installing Fonts"
 ya nerd-fonts-fira-code awesome-terminal-fonts
 ya adobe-source-han-sans-cn-fonts adobe-source-han-sans-jp-fonts adobe-source-han-sans-kr-fonts adobe-source-sans-fonts
