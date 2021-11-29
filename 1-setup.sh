@@ -327,6 +327,7 @@ echo ""
 ################################################################################
 
 echo "Keys created"
+chmod 700 -R /crypt
 
 echo "Configuring sbupdate (installed later)"
 cp ~/install-script/sbupdate.conf /etc/sbupdate.conf
