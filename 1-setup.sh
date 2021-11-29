@@ -266,6 +266,8 @@ echo "--------------------------------------------------------------------------
 # That means that any modification to the KeyStore would prevent unlocking the volume
 # Using an EFI image signed with a proper key which is not the same would also not unlock the volume.
 
+# Only create keys if they don't exist
+if [ ! -d /crypt/sb ]; then
 echo "Creating Secureboot keys at /crypt/sb"
 echo "GRUB and EFI Stubs will be signed by /crypt/sb/DB.key"
 echo "Enroll it in the BIOS manually by copying /crypt/sb/DB.crt to a flash drive"
@@ -328,6 +330,7 @@ echo ""
 
 echo "Keys created"
 chmod 700 -R /crypt
+fi
 
 echo "Configuring sbupdate (installed later)"
 cp ${SCRIPT_DIR}/sbupdate.conf /etc/sbupdate.conf
