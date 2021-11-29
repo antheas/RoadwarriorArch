@@ -513,12 +513,19 @@ chown :wheel /home/.snapshots
 echo "--------------------------------------------------------------------------"
 echo "- EFI "
 echo "--------------------------------------------------------------------------"
+echo "Installing KeyTool..."
+mkdir -p /efi/EFI/${distroname:-RoadwarriorArch}/
+cp /usr/share/efitools/efi/KeyTool.efi /efi/EFI/${distroname:-RoadwarriorArch}/
+mkdir -p /efi/keys
+cp /crypt/sb/{*.esl,*.auth} /efi/keys
+
 read -p "Create EFI entries? (y/N):" installNow
 case $installNow in
   y|Y|yes|Yes|YES)
-    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - Linux"     --loader "/EFI/${distroname:-RoadwarriorArch}/linux-signed.efi"
-    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - Linux LTS" --loader "/EFI/${distroname:-RoadwarriorArch}/linux-lts-signed.efi"
+    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - KeyTool"   --loader "/EFI/${distroname:-RoadwarriorArch}/KeyTool.efi"
     efibootmgr --create --disk ${DISK} --part 2 --label "Arch - GRUB"      --loader "/EFI/${distroname:-RoadwarriorArch}/grubx64.efi"
+    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - Linux LTS" --loader "/EFI/${distroname:-RoadwarriorArch}/linux-lts-signed.efi"
+    efibootmgr --create --disk ${DISK} --part 2 --label "Arch - Linux"     --loader "/EFI/${distroname:-RoadwarriorArch}/linux-signed.efi"
     ;;
   *)
     echo "Exiting..."
