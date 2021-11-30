@@ -67,6 +67,9 @@ ya nerd-fonts-fira-code awesome-terminal-fonts
 ya adobe-source-han-sans-cn-fonts adobe-source-han-sans-jp-fonts adobe-source-han-sans-kr-fonts adobe-source-sans-fonts
 ya ttf-inconsolata ttf-indic-otf ttf-roboto ttf-windows
 
+echo "#### Installing Dictionaries"
+ya hunspell-en_us hunspell-el
+
 echo "#### Installing AUR utils"
 ya tlpui inxi snapper-gui-git
 
