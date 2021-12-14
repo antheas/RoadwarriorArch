@@ -134,18 +134,18 @@ You will be asked a couple of format related question and Arch will be installed
 
 ## Installation details
 This repository is made up of the following scripts:
-  - **0-preinstall.sh**: formats the drive using LUKS2 and bootstraps Arch using install media
-  - **1-setup.sh**: runs within arch-chroot and installs the desktop environment
+  - `0-preinstall.sh`: formats the drive using LUKS2 and bootstraps Arch using install media
+  - `1-setup.sh`: runs within arch-chroot and installs the desktop environment
     and configures the main OS (can be run multiple times to refresh system)
   - System is bootable after running those two scripts
-  - **2-software.sh**: installs yay, sbupdate (installs efi executables), and a 
+  - `2-software.sh`: installs yay, sbupdate (installs efi executables), and a 
     lot of large programs, skip for testing.
     Runs using created user, non-root
-  - **3-dotfiles.sh**: is empty, use it to install user configuration
-  - **rw-install.sh**: runs 0-preinstall.sh, 1-setup.sh, 2-software.sh, 3-dotfiles.sh
+  - `3-dotfiles.sh`: is empty, use it to install user configuration
+  - `rw-install.sh`: runs 0-preinstall.sh, 1-setup.sh, 2-software.sh, 3-dotfiles.sh
     in order. It prompts before running 2-software.sh, 3-dotfiles.sh, so you can skip those
     for testing.
-  - **rw-rescue.sh**: unlocks and remounts a drive that was created using `0-preinstall.sh`
+  - `rw-rescue.sh`: unlocks and remounts a drive that was created using `0-preinstall.sh`
     into `/mnt`, so you can continue installation after restarting or diagnose
     the system. 
 
