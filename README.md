@@ -34,7 +34,7 @@ Features include:
     - By default KDE with SDDM installed, one line change for something different
   - Security
     - Full Hard Drive Encryption with LUKS2 (including /boot)
-    - TMP2 support for passwordless login (measured boot) that supports kernel updates
+    - TPM2 support for passwordless login (measured boot) that supports kernel updates
     - Kernel Updates protected by booting using a signed EFI stub and Secure Boot
     - Secure Boot support with key generation and signing handled
     - Automatic installation/signing of KeyTool and certs in EFI partition.
@@ -230,9 +230,9 @@ and whether to continue with `2-software.sh`, `3-dotfiles.sh`.
 First time, do a base install and skip the rest.
 After verifying the system boots properly, execute the whole setup.
 
-## Secure Boot and TMP
+## Secure Boot and TPM
 You now have a working system!
-Which that boots with GRUB2/EFI stubs and asks for a password.
+Which boots with GRUB2/EFI stubs and asks for a password.
 Next step is to enable UEFI Secure boot and add your keys to it.
 
 Read `1-setup.sh` for detailed instructions.
@@ -296,12 +296,12 @@ Reboot and boot into `Arch - Linux` with Secure Boot on.
 
 Success!
 
-## Enable TMP2 Support
+## Enable TPM2 Support
 After enabling secure boot and restarting a few times to make sure it works you
-can move on to enabling TMP2 support.
+can move on to enabling TPM2 support.
 Start by booting using either `Arch - Linux` or `Arch - Linux LTS`.
 
-The kernel header that enables TMP2 unlock is already installed for you in the 
+The kernel header that enables TPM2 unlock is already installed for you in the 
 `EFI stubs`.
 
 All you need to do is add a TPM entry to your drive's LUKS2 header.
@@ -405,6 +405,7 @@ Feel free to install your dotfiles the way you prefer, or copy over your user
 folder from another computer.
 
 > TODO: Release my own dotfiles.
+
 ## Credits
 - Chris Titus' Arch Titus script that was used as a base. Credits from those:
   - Original packages script was a post install cleanup script called ArchMatic located here: https://github.com/rickellis/ArchMatic
