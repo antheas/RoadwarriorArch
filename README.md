@@ -1,8 +1,49 @@
-# ArchTitus Installer Script
+``` bash
+#----------------------------------------------------------------------------------
+#  __________                 ._____      __                    .__              
+#  \______   \ _________    __| _/  \    /  \____ ______________|__| ___________ 
+#   |       _//  _ \__  \  / __ |\   \/\/   |__  \\_  __ \_  __ \  |/  _ \_  __ \
+#   |    |   (  <_> ) __ \/ /_/ | \        / / __ \|  | \/|  | \/  (  <_> )  | \/
+#   |____|_  /\____(____  |____ |  \__/\  / (____  /__|   |__|  |__|\____/|__|   
+#          \/           \/     \/       \/       \/                              
+#----------------------------------------------------------------------------------
+```
 
-This README contains the steps I do to install and configure a fully-functional Arch Linux installation containing a desktop environment, all the support packages (network, bluetooth, audio, printers, etc.), along with all my preferred applications and utilities. The shell scripts in this repo allow the entire process to be automated.)
+This repository contains a collection of scripts that will install Arch and include
+all of the relevant features for a laptop user (i.e. a roadwarrior; RoadwarriorArch).
+All installation scripts feature extensive comments and references to where they
+were each command was taken from.
+At the same time, they were made to be customizable, so you can fork this repository
+and customize it for yourself.
 
----
+Those include:
+  - Security
+    - Full Hard Drive Encryption with LUKS2
+    - TMP2 support for passwordless login (measured boot) that supports kernel updates
+    - Kernel Updates protected by booting using a signed EFI stub and Secureboot
+    - Secure Boot support with key generation and signing handled
+    - Automatic installation/signing of KeyTool and certs in EFI partition.
+      Painless install of keys in UEFI.
+    - Fully Functional unlocked and signed GRUB2 that can mount encrypted /boot
+      for troubleshooting (password required).
+  - Btrfs filesystem
+    - Hibernation Support with encrypted swap file in btrfs
+    - Script that generates Btrfs alignment value for kernel cmd is built-in
+    - Snapper support for both system directory and home directory with separate subvolumes
+  - Tweaks
+    - Silent Boot (UEFI logo retained until KDE lockscreen; no logs)
+    - Make flags set for CPU cores
+    - Customizable locale/timezone
+  - Hybrid BIOS/UEFI support
+    - Unsigned GRUB2 executable installed on both BIOS partition and EFI partition
+    - Boot on any computer by entering your Disk password
+    - Enter password only on GRUB, special initramfs image with keyfile and
+      kernel cmd unlock volume the second time.
+    - Commands provided to add EFI images to UEFI 
+  - Proper Intel Integrated Graphics packages installed
+    - Just modify your Chrome shortcut for video hardware acceleration
+    - No tearing (kwin with OpenGL 3.1)
+
 ## Create Arch ISO or Use Image
 
 Download ArchISO from <https://archlinux.org/download/> and put on a USB drive with Ventoy or Etcher
