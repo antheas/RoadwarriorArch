@@ -63,7 +63,8 @@ echo "Signing current kernels and GRUB"
 sudo sbupdate
 
 echo "#### Installing Fonts"
-ya nerd-fonts-fira-code awesome-terminal-fonts
+# noto-fonts-emoji -> emoji font
+ya nerd-fonts-fira-code awesome-terminal-fonts noto-fonts-emoji
 ya adobe-source-han-sans-cn-fonts adobe-source-han-sans-jp-fonts adobe-source-han-sans-kr-fonts adobe-source-sans-fonts
 ya ttf-inconsolata ttf-indic-otf ttf-roboto ttf-windows
 

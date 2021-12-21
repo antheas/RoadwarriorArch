@@ -61,7 +61,7 @@ Features include:
   - Separate script for most user space programs, which includes mine (`2-software.sh`)
     - Research programs: LaTeX, Zotero, Xournalpp, Libre Office
     - Photography/Design: wacom support, DarkTable, Rapid Photo Downloader, GIMP
-    - Fonts, Dictionaries, etc
+    - Fonts, Emoji, Dictionaries, etc
     - yay install
     - Some AUR programs that are installed with yay (sbupdate for secure boot efi, tlp UI)
 
