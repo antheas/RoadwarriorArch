@@ -417,7 +417,7 @@ pi python python-pip python2
 echo "#### Install a collection of useful tools"
 pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget rsync pacman-contrib openvpn
 echo "#### Install Disk Utils"
-pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility
+pi gparted gptfdisk ntfs-3g util-linux dosfstools exfat-utils gnome-disk-utility iotop
 
 echo "#### Install Laptop energy management (TLP) and TPM support"
 pi tlp tlp-rdw tpm2-tools
