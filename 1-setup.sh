@@ -439,6 +439,7 @@ echo "#### Install Misc Packages"
 PKGS=(
   'cronie'          # Crontab
   'cups'            # Printer management
+  'gutenprint'      # Printer drivers
   # 'picom'         # Compositor that helps with tearing (?)
   'powerline-fonts' # powerline fonts for vim/ZSH
   # 'synergy'       # Share mouse between multiple PCs
