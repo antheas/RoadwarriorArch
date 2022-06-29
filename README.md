@@ -389,17 +389,8 @@ As well as `Log in again immediately after logging off`.
 But, what about security? 
 Your laptop boots in without a password and logs in automatically now.
 
-Add `DESKTOP_LOCKED=1` to `~/.pam_environment` (doesn't exist by default).
-``` bash
-echo "DESKTOP_LOCKED=1" > ~/.pam_environment
-```
-
-This will cause KDE to lock your user the moment you log in.
-
-> Update: the newest Plasma update makes KDE boot with systemd, which skips the
-> `~/.pam_environment` file. 
-> A temporary fix is: `kwriteconfig5 --file startkderc --group General --key systemdBoot false`,
-> which will create the file `~/.config/startkderc` and restore the old behavior.
+## Starting with KDE locked
+You can configure KDE to use the lockscreen at boot by following the steps below.
 
 This way, your services will get loaded as soon as you boot, waiting for you to
 put your password, your `kscreen/xrandr` configuration will be loaded having
@@ -407,6 +398,34 @@ your monitors appear correctly, and your lockscreen theme will be used!
 
 With this configuration, my laptop boots within 20 seconds and is ready to use
 the moment I enter my password.
+
+### with systemdBoot enabled
+The latest version of Plasma in Arch starts as a set of systemd services
+(`systemctl --user status` will have a lot of `plasma` services 
+[info](https://invent.kde.org/plasma/plasma-workspace/-/wikis/Plasma-and-the-systemd-boot))
+To start locked, you need to override one of those services and add a parameter
+([info](https://bugs.kde.org/show_bug.cgi?id=436271)).
+
+Create this file in your user directory 
+`~/.config/systemd/user/plasma-ksmserver.service.d/override.conf` and fill it in with:
+
+```
+[Service]
+ExecStart=
+ExecStart=/usr/bin/ksmserver --lockscreen
+```
+
+### with systemdBoot disabled
+> Update: the newest Plasma update makes KDE boot with systemd, which skips the
+> `~/.pam_environment` file.
+> You can restore the old behavior with
+> `kwriteconfig5 --file startkderc --group General --key systemdBoot false`,
+> which will create the file `~/.config/startkderc` or use the method above.
+
+Add `DESKTOP_LOCKED=1` to `~/.pam_environment` (doesn't exist by default).
+``` bash
+echo "DESKTOP_LOCKED=1" > ~/.pam_environment
+```
 
 ## Installing dotfiles (configuration)
 The installation steps are over and now you have fully functional Arch install 
