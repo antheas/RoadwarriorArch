@@ -396,6 +396,11 @@ echo "DESKTOP_LOCKED=1" > ~/.pam_environment
 
 This will cause KDE to lock your user the moment you log in.
 
+> Update: the newest Plasma update makes KDE boot with systemd, which skips the
+> `~/.pam_environment` file. 
+> A temporary fix is: `kwriteconfig5 --file startkderc --group General --key systemdBoot false`,
+> which will create the file `~/.config/startkderc` and restore the old behavior.
+
 This way, your services will get loaded as soon as you boot, waiting for you to
 put your password, your `kscreen/xrandr` configuration will be loaded having
 your monitors appear correctly, and your lockscreen theme will be used!
