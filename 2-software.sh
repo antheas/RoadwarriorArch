@@ -78,7 +78,8 @@ echo "#### Installing Apps"
 ya zotero xournalpp libreoffice-still
 ya vivaldi vivaldi-ffmpeg-codecs
 # vs code requires gnome-keyring
-ya visual-studio-code-bin solaar skypeforlinux-stable-bin keepassxc gnome-keyring
+# xclip is used for the paste image vs code extension
+ya visual-studio-code-bin solaar skypeforlinux-stable-bin keepassxc gnome-keyring xclip
 ya darktable inkscape rapid-photo-downloader gimp 
 
 echo "#### Installing Wacom Support"
