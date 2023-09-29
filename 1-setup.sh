@@ -389,7 +389,7 @@ fi
 echo "#### Install mesa and xorg to power display"
 pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
 echo "#### Install plasma group + kde, desktop environment, sddm login"
-pi plasma kde-utilities kde-system sddm zeroconf-ioslave system-config-printer
+pi plasma kde-utilities kde-system sddm zeroconf-ioslave system-config-printer plasma-wayland-session
 echo "#### Install a subsection of kde-applications, which is too large"
 pi gwenview okular spectacle
 echo "#### Install networking"
