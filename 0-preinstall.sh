@@ -213,7 +213,9 @@ cd /mnt/swap
 touch ./swapfile
 chmod 600 ./swapfile
 chattr +C ./swapfile
-btrfs property set ./swapfile compression none
+# Doesn't work as of 2023
+# Error: failed to set compression for swapfile: Invalid argument
+# btrfs property set ./swapfile compression none 
 dd if=/dev/zero of=./swapfile bs=1G count=${swapSize} status=progress
 mkswap ./swapfile
 swapon ./swapfile

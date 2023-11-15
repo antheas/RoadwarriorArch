@@ -74,8 +74,9 @@ for loc in "${locale_gen[@]:-("en_US.UTF-8\ UTF-8")}"; do
   sed -i "s/#${loc}/${loc}/" /etc/locale.gen
 done
 locale-gen
-localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
-localectl --no-ask-password set-keymap ${keymap:-us}
+# These require dbus now...
+# localectl --no-ask-password set-locale LANG="${locale_lang:-en_US.UTF-8}" LC_TIME="${locale_lang:-en_US.UTF-8}"
+# localectl --no-ask-password set-keymap ${keymap:-us}
 
 ln -sf /usr/share/zoneinfo/${timezone:-America/Chicago} /etc/localtime
 hwclock --systohc
@@ -84,7 +85,7 @@ hwclock --systohc
 
 # Add sudo no password rights
 echo "Sudoers: wheel group will require no password to run sudo, edit /etc/sudoers"
-sed -i 's/^# %wheel ALL=(ALL) NOPASSWD: ALL/%wheel ALL=(ALL) NOPASSWD: ALL/' /etc/sudoers
+sed -i 's/^# %wheel ALL=(ALL:ALL) NOPASSWD: ALL/%wheel ALL=(ALL:ALL) NOPASSWD: ALL/' /etc/sudoers
 
 # Enable multilib
 sed -i "/\[multilib\]/,/Include/"'s/^#//' /etc/pacman.conf
@@ -128,7 +129,7 @@ echo "LUKS partition (${CRYPT_PART}) UUID: ${LUKS_UUID}"
 # https://wiki.archlinux.org/title/Power_management/Suspend_and_hibernate#Hibernation_into_swap_file_on_Btrfs
 SWAP_UUID=$(findmnt -no UUID -T /swap/swapfile)
 gcc -O2 -o ${SCRIPT_DIR}/btrfs_map_physical ${SCRIPT_DIR}/physical.c
-SWAP_FILE_OFFSET=$(${SCRIPT_DIR}/btrfs_map_physical /swap/swapfile | egrep -om 1 "[[:digit:]]+$")
+SWAP_FILE_OFFSET=$(${SCRIPT_DIR}/btrfs_map_physical /swap/swapfile | grep -Eom 1 "[[:digit:]]+$")
 PAGE_SIZE=$(getconf PAGESIZE)
 SWAP_OFFSET=$(expr $SWAP_FILE_OFFSET / $PAGE_SIZE)
 echo "Swap file (UUID=${SWAP_UUID}) offset is $SWAP_FILE_OFFSET / $PAGE_SIZE = $SWAP_OFFSET"
@@ -389,7 +390,10 @@ fi
 echo "#### Install mesa and xorg to power display"
 pi mesa xorg xorg-server xorg-apps xorg-drivers xorg-xkill xorg-xinit
 echo "#### Install plasma group + kde, desktop environment, sddm login"
-pi plasma kde-utilities kde-system sddm zeroconf-ioslave system-config-printer plasma-wayland-session
+pi zeroconf-ioslave system-config-printer
+pi plasma kde-utilities kde-system sddm plasma-wayland-session
+# echo "#### Install Gnome and KDE favs"
+# pi gnome gdm yakuake kcalc kate
 echo "#### Install a subsection of kde-applications, which is too large"
 pi gwenview okular spectacle
 echo "#### Install networking"
@@ -412,7 +416,7 @@ pi bluez bluez-libs bluez-utils
 echo "#### Install Fuse mounts, mount GDrive, OneDrive etc with rclone"
 pi rclone sshfs fuse2 fuse3
 echo "#### Install Python"
-pi python python-pip python2
+pi python python-pip
 
 echo "#### Install a collection of useful tools"
 pi git openssh htop bmon nano os-prober openbsd-netcat ufw lsof vim wget rsync pacman-contrib openvpn
@@ -459,6 +463,7 @@ echo "--------------------------------------------------------------------------
 echo "- Enable Essential Services "
 echo "--------------------------------------------------------------------------"
 systemctl enable sddm
+# systemctl enable gdm # for gnome
 systemctl enable cups
 systemctl enable cronie
 systemctl enable systemd-timesyncd
@@ -466,7 +471,7 @@ systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable apparmor
 systemctl enable tlp
-systemctl enable grub-btrfs.path # adds snapshots to grub
+systemctl enable grub-btrfsd # adds snapshots to grub
 
 echo "--------------------------------------------------------------------------"
 echo "- Configure snapper "

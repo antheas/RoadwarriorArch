@@ -105,8 +105,8 @@ done
 
 # ya snap-pac
 
-sudo snapper --no-dbus -c root create #--description \"Post Software\"
-sudo snapper --no-dbus -c home create #--description \"Post Software\"
+# sudo snapper --no-dbus -c root create #--description \"Post Software\"
+# sudo snapper --no-dbus -c home create #--description \"Post Software\"
 
 echo "--------------------------------------------------------------------------"
 echo "- Finished "
