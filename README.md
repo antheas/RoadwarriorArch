@@ -316,7 +316,7 @@ PCRS="0+2+3+7+8"
 
 # Of course systemd-cryptenroll doesn't support key files, so generate a keyphrase
 # and use that when updating the tpm to avoid the entering password
-alias tpmk="sudo bash -c 'systemd-cryptenroll --recovery-key \$(blkid | grep crypto_LUKS | egrep -o \"^\/dev\/[a-zA-Z0-9]+\") > /crypt/systemd.key && chmod 700 /crypt/systemd.key'"
+alias tpmk="sudo bash -c 'systemd-cryptenroll --recovery-key \$(blkid | grep crypto_LUKS | grep -Eo \"^/dev/[a-zA-Z0-9]+\") > /crypt/systemd.key && chmod 700 /crypt/systemd.key'"
 # cryptsetup luksKillSlot /dev/... n kills slot n
 # cryptsetup luksDump /dev/... shows info about device (and json tokens)
 
@@ -329,9 +329,9 @@ alias tpmk="sudo bash -c 'systemd-cryptenroll --recovery-key \$(blkid | grep cry
 # tpmu updates the TPM key (removes the current ones and adds a new one)
 # tpma adds a tpm key without removing the current ones (multiple kernels etc)
 # tpmc clears the TPM keys (think going through airport security)
-alias tpmu="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-cryptenroll --tpm2-device=auto --wipe-slot=tpm2 --tpm2-pcrs=$PCRS \$(blkid | grep crypto_LUKS | egrep -o \"^\/dev\/[a-zA-Z0-9]+\")'"
-alias tpma="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=$PCRS \$(blkid | grep crypto_LUKS | egrep -o \"^\/dev\/[a-zA-Z0-9]+\")'"
-alias tpmc="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-cryptenroll --wipe-slot=tpm2 \$(blkid | grep crypto_LUKS | egrep -o \"^\/dev\/[a-zA-Z0-9]+\")'"
+alias tpmu="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-cryptenroll --tpm2-device=auto --wipe-slot=tpm2 --tpm2-pcrs=$PCRS \$(blkid | grep crypto_LUKS | grep -Eo \"^/dev/[a-zA-Z0-9]+\")'"
+alias tpma="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=$PCRS \$(blkid | grep crypto_LUKS | grep -Eo \"^/dev/[a-zA-Z0-9]+\")'"
+alias tpmc="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-cryptenroll --wipe-slot=tpm2 \$(blkid | grep crypto_LUKS | grep -Eo \"^/dev/[a-zA-Z0-9]+\")'"
 
 # Asks you to enter your hardware encryption password
 # Since TPM always unlocks, you might feel you're about to forget it...
@@ -340,7 +340,7 @@ alias tpmc="sudo bash -c 'PASSWORD=\"\$(cat /crypt/systemd.key)\" systemd-crypte
 # Enter passphrase for /dev/nvme#n#p3: 
 # Key slot 0 unlocked.
 # Command successful.
-alias remindme="sudo bash -c 'cryptsetup luksOpen --test-passphrase --disable-external-tokens --verbose \$(blkid | grep crypto_LUKS | egrep -o \"^\/dev\/[a-zA-Z0-9]+\")'"
+alias remindme="sudo bash -c 'cryptsetup luksOpen --test-passphrase --disable-external-tokens --verbose \$(blkid | grep crypto_LUKS | grep -Eo \"^/dev/[a-zA-Z0-9]+\")'"
 ```
 
 Restart your bash shell or launch a new one.
